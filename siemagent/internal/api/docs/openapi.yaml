@@ -1,0 +1,912 @@
+openapi: "3.0.3"
+info:
+  title: SIEMAgent API
+  version: "1.0.0"
+  description: |
+    AI-powered Security Information and Event Management (SIEM) classifier.
+
+    Parses syslog / JSON logs, classifies them with an LLM (Kimchi → kimi-k2),
+    indexes events in Qdrant for semantic search, and exposes analytics.
+
+    **Severity scale**
+    | Code | Meaning |
+    |------|---------|
+    | P1 | Critical — active breach / ransomware / data exfil |
+    | P2 | High — successful intrusion / privilege escalation |
+    | P3 | Medium — failed attack attempt / anomaly |
+    | P4 | Low — policy violation / reconnaissance |
+    | P5 | Info — normal ops / noise |
+
+servers:
+  - url: http://localhost:8080
+    description: Local dev server
+
+tags:
+  - name: Health
+    description: Liveness and readiness probes
+  - name: Classification
+    description: Log event classification (single and streaming)
+  - name: Ingestion
+    description: Bulk log ingestion pipeline
+  - name: Search
+    description: Semantic vector search over past events
+  - name: Analytics
+    description: In-memory event analytics
+  - name: Observability
+    description: Prometheus metrics
+
+paths:
+  # ── Health ────────────────────────────────────────────────────────────────────
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: Returns immediately. Use this as the container liveness check.
+      operationId: getHealth
+      responses:
+        "200":
+          description: Server is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthOK"
+              example:
+                status: ok
+
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      description: |
+        Checks downstream dependencies with a 10-second result cache.
+        Returns 503 if any dependency is unreachable.
+
+        **Checks performed**
+        - `llm` — always checked (Ping call to the configured LLM, 5 s timeout)
+        - `qdrant` — only present when `QDRANT_ADDR` is configured; uses a plain TCP
+          dial with a 2 s timeout
+      operationId: getHealthReady
+      responses:
+        "200":
+          description: All configured dependencies reachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReady"
+              examples:
+                llm_only:
+                  summary: LLM ok, Qdrant not configured
+                  value:
+                    status: ready
+                    checks:
+                      llm: ok
+                with_qdrant:
+                  summary: LLM + Qdrant both ok
+                  value:
+                    status: ready
+                    checks:
+                      llm: ok
+                      qdrant: ok
+        "503":
+          description: One or more dependencies unreachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthReady"
+              examples:
+                llm_down:
+                  summary: LLM unreachable
+                  value:
+                    status: not ready
+                    checks:
+                      llm: "error: context deadline exceeded"
+                qdrant_down:
+                  summary: Qdrant unreachable
+                  value:
+                    status: not ready
+                    checks:
+                      llm: ok
+                      qdrant: "error: dial tcp 127.0.0.1:6334: connect: connection refused"
+
+  # ── Classification ────────────────────────────────────────────────────────────
+
+  /classify:
+    post:
+      tags: [Classification]
+      summary: Classify a single log line (legacy top-level path)
+      description: Alias for `POST /api/classify`. Kept for backward compatibility.
+      operationId: classifyLegacy
+      requestBody:
+        $ref: "#/components/requestBodies/ClassifyRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ClassifiedEvent"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /classify/stream:
+    post:
+      tags: [Classification]
+      summary: Classify a log line with SSE streaming (legacy top-level path)
+      description: Alias for `POST /api/classify/stream`. Kept for backward compatibility.
+      operationId: classifyLogStreamLegacy
+      requestBody:
+        $ref: "#/components/requestBodies/ClassifyRequest"
+      responses:
+        "200":
+          description: SSE stream — see `/api/classify/stream` for full event format
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/classify:
+    post:
+      tags: [Classification]
+      summary: Classify a single log line
+      description: |
+        Parses the raw log line (auto-detecting RFC 5424 syslog, RFC 3164 syslog,
+        JSON, or treating it as a raw string), then sends it to the LLM for classification.
+
+        **Validation rules**
+        - `log` is required, max 8 192 bytes
+        - `format` must be `syslog`, `json`, or `auto` (default `auto`)
+      operationId: classifyLog
+      requestBody:
+        $ref: "#/components/requestBodies/ClassifyRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ClassifiedEvent"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/classify/stream:
+    post:
+      tags: [Classification]
+      summary: Classify a log line with SSE streaming
+      description: |
+        Same as `POST /api/classify` but streams the LLM response as
+        Server-Sent Events so the client receives incremental text.
+
+        **Event types**
+        ```
+        data: {"chunk":"..."}            ← incremental LLM token
+        data: {"result":{...},"done":true}  ← final ClassifiedEvent + done signal
+        data: {"error":"..."}           ← classification failure
+        ```
+
+        Set `Accept: text/event-stream` or let the browser handle it via `EventSource`.
+      operationId: classifyLogStream
+      requestBody:
+        $ref: "#/components/requestBodies/ClassifyRequest"
+      responses:
+        "200":
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                data: {"chunk":"{\"attack_type\":\"Brute"}
+
+                data: {"chunk":" Force\",\"severity\":\"P2\"..."}
+
+                data: {"result":{"attack_type":"Brute Force","severity":"P2","confidence":0.95,"iocs":["192.168.1.100"],"summary":"Multiple failed SSH login attempts.","remediation":"Block the source IP and rotate credentials.","mitre":{"tactic":"Credential Access","technique_id":"T1110.001","technique":"Password Guessing"},"event":{"raw":"<165>1 2024-01-15T10:30:00Z webserver sshd 1234 - Failed password for root from 192.168.1.100 port 22","timestamp":"2024-01-15T10:30:00Z","hostname":"webserver","app_name":"sshd","proc_id":"1234","message":"Failed password for root from 192.168.1.100 port 22","source":"syslog"},"processed_at":"2024-01-15T10:30:01Z"},"done":true}
+
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  # ── Ingestion ─────────────────────────────────────────────────────────────────
+
+  /api/ingest:
+    post:
+      tags: [Ingestion]
+      summary: Bulk ingest up to 500 log lines
+      description: |
+        Parses and classifies all lines using the worker pool.
+        Streams chunked progress lines every 10 events, then a final summary object.
+
+        **Progress line format (chunked)**
+        ```json
+        {"progress":10,"accepted":47}
+        ```
+        **Final response object**
+        ```json
+        {"accepted":47,"classified":45,"errors":2,"results":[...]}
+        ```
+      operationId: ingestLogs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestRequest"
+            examples:
+              syslog_batch:
+                summary: Batch of syslog lines
+                value:
+                  format: syslog
+                  logs:
+                    - "<165>1 2024-01-15T10:30:00Z webserver sshd 1234 - Failed password for root from 192.168.1.100 port 22"
+                    - "<165>1 2024-01-15T10:30:01Z webserver sshd 1234 - Failed password for root from 192.168.1.100 port 22"
+                    - "<165>1 2024-01-15T10:30:02Z webserver sshd 1234 - Accepted publickey for deploy from 10.0.0.5 port 41222"
+              json_batch:
+                summary: Batch of JSON log lines
+                value:
+                  format: json
+                  logs:
+                    - '{"level":"error","msg":"auth failed","time":"2024-01-15T10:30:00Z","hostname":"api-01"}'
+                    - '{"level":"warn","msg":"rate limit exceeded","time":"2024-01-15T10:30:05Z","hostname":"api-01"}'
+      responses:
+        "200":
+          description: |
+            Bulk classification result streamed as chunked JSON.
+
+            The response uses `Transfer-Encoding: chunked`. Every 10 events a
+            progress line is flushed, followed by the final IngestResponse object:
+
+            ```
+            {"progress":10,"accepted":47}
+            {"progress":20,"accepted":47}
+            {"accepted":47,"classified":45,"errors":2,"results":[...]}
+            ```
+          headers:
+            Transfer-Encoding:
+              schema:
+                type: string
+                enum: [chunked]
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResponse"
+              example:
+                accepted: 3
+                classified: 3
+                errors: 0
+                results:
+                  - attack_type: Brute Force
+                    severity: P2
+                    confidence: 0.95
+                    iocs: ["192.168.1.100", "root"]
+                    summary: Multiple failed SSH login attempts from 192.168.1.100.
+                    remediation: Block the source IP and reset account credentials.
+                    mitre:
+                      tactic: Credential Access
+                      technique_id: T1110.001
+                      technique: "Password Guessing"
+                    event:
+                      raw: "<165>1 2024-01-15T10:30:00Z webserver sshd 1234 - Failed password for root from 192.168.1.100 port 22"
+                      timestamp: "2024-01-15T10:30:00Z"
+                      hostname: webserver
+                      app_name: sshd
+                      proc_id: "1234"
+                      message: Failed password for root from 192.168.1.100 port 22
+                      source: syslog
+                    processed_at: "2024-01-15T10:30:01Z"
+        "400":
+          description: Request validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                empty_logs:
+                  summary: Empty logs array
+                  value:
+                    error: "logs array is empty"
+                too_many_logs:
+                  summary: Exceeds 500 line limit
+                  value:
+                    error: "maximum 500 log lines per request"
+                invalid_json:
+                  summary: Malformed request body
+                  value:
+                    error: "invalid JSON body"
+
+  # ── Search ────────────────────────────────────────────────────────────────────
+
+  /api/search:
+    get:
+      tags: [Search]
+      summary: Semantic search over indexed events
+      description: |
+        Embeds the query text with Ollama (nomic-embed-text) and performs a
+        nearest-neighbour search in Qdrant.
+
+        Returns 503 when Qdrant / Ollama are not configured.
+      operationId: searchEvents
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Natural language search query
+          schema:
+            type: string
+            minLength: 1
+          example: "brute force SSH login from China"
+        - name: severity
+          in: query
+          required: false
+          description: Filter results to a single severity level
+          schema:
+            $ref: "#/components/schemas/Severity"
+          example: P2
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of results (1–100, default 20)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 10
+      responses:
+        "200":
+          description: Ranked search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchHit"
+              example:
+                - event_id: "Failed password f"
+                  timestamp: "2024-01-15T10:30:01Z"
+                  source: syslog
+                  attack_type: Brute Force
+                  severity: P2
+                  summary: Multiple failed SSH login attempts from 192.168.1.100.
+                  mitre_tactic: Credential Access
+                  score: 0.97
+                - event_id: "Failed password f"
+                  timestamp: "2024-01-14T08:12:44Z"
+                  source: syslog
+                  attack_type: Brute Force
+                  severity: P2
+                  summary: SSH brute force attempt targeting root account from 203.0.113.5.
+                  mitre_tactic: Credential Access
+                  score: 0.91
+        "400":
+          description: Missing required query parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "q parameter is required"
+        "500":
+          description: Embedding or vector search failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                embed_failed:
+                  summary: Ollama embedding call failed
+                  value:
+                    error: "embedding failed"
+                search_failed:
+                  summary: Qdrant search call failed
+                  value:
+                    error: "search failed"
+        "503":
+          description: Semantic search not configured (Qdrant/Ollama not available)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "semantic search not configured (Qdrant/Ollama not available)"
+
+  # ── Analytics ─────────────────────────────────────────────────────────────────
+
+  /api/analytics/summary:
+    get:
+      tags: [Analytics]
+      summary: In-memory event analytics
+      description: |
+        Returns aggregated statistics over the last 1 000 classified events held
+        in the server's ring buffer.
+
+        - **attack_type_counts** — event count per attack type with highest severity seen
+        - **timeline** — 36 × 10-minute buckets covering the last 6 hours (P1/P2/P3 counts)
+        - **mitre_tactics** — MITRE ATT&CK tactic distribution
+      operationId: getAnalyticsSummary
+      responses:
+        "200":
+          description: Analytics summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsSummary"
+              example:
+                total_events: 142
+                attack_type_counts:
+                  Brute Force:
+                    count: 87
+                    severity: P2
+                  Port Scan:
+                    count: 31
+                    severity: P4
+                  SQL Injection:
+                    count: 14
+                    severity: P2
+                  Benign:
+                    count: 10
+                    severity: P5
+                timeline:
+                  - time: "10:00"
+                    counts: {P1: 0, P2: 3, P3: 7}
+                  - time: "10:10"
+                    counts: {P1: 1, P2: 5, P3: 4}
+                  - time: "10:20"
+                    counts: {P1: 0, P2: 2, P3: 9}
+                mitre_tactics:
+                  "Credential Access": 87
+                  "Discovery": 31
+                  "Initial Access": 14
+
+  # ── Observability ─────────────────────────────────────────────────────────────
+
+  /metrics:
+    get:
+      tags: [Observability]
+      summary: Prometheus metrics
+      description: |
+        Exposes the following custom metrics in addition to standard Go runtime metrics.
+
+        | Metric | Type | Labels |
+        |--------|------|--------|
+        | `events_classified_total` | counter | `severity`, `attack_type` |
+        | `classification_duration_seconds` | histogram | — |
+        | `llm_stream_errors_total` | counter | — |
+      operationId: getMetrics
+      responses:
+        "200":
+          description: Prometheus text format
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP events_classified_total Total number of events classified
+                # TYPE events_classified_total counter
+                events_classified_total{attack_type="Brute Force",severity="P2"} 87
+                # HELP classification_duration_seconds Time spent on LLM classification
+                # TYPE classification_duration_seconds histogram
+                classification_duration_seconds_bucket{le="0.1"} 0
+                classification_duration_seconds_bucket{le="0.5"} 12
+                classification_duration_seconds_bucket{le="1"} 54
+                classification_duration_seconds_bucket{le="2"} 87
+                classification_duration_seconds_bucket{le="+Inf"} 87
+                classification_duration_seconds_sum 63.4
+                classification_duration_seconds_count 87
+
+# ── Reusable Components ───────────────────────────────────────────────────────
+
+components:
+  schemas:
+    Severity:
+      type: string
+      enum: [P1, P2, P3, P4, P5]
+      description: |
+        P1=Critical, P2=High, P3=Medium, P4=Low, P5=Info
+
+    LogEvent:
+      type: object
+      required: [raw, message, source]
+      properties:
+        raw:
+          type: string
+          description: Original unparsed log line
+          example: "<165>1 2024-01-15T10:30:00Z webserver sshd 1234 - Failed password for root from 192.168.1.100 port 22"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        hostname:
+          type: string
+          example: webserver
+        app_name:
+          type: string
+          example: sshd
+        proc_id:
+          type: string
+          example: "1234"
+        message:
+          type: string
+          example: "Failed password for root from 192.168.1.100 port 22"
+        source:
+          type: string
+          enum: [syslog, json, raw]
+          example: syslog
+
+    MITREInfo:
+      type: object
+      required: [tactic, technique_id, technique]
+      properties:
+        tactic:
+          type: string
+          example: "Credential Access"
+        technique_id:
+          type: string
+          example: "T1110.001"
+        technique:
+          type: string
+          example: "Password Guessing"
+
+    ClassifiedEvent:
+      type: object
+      required: [event, attack_type, mitre, severity, confidence, iocs, summary, remediation, processed_at]
+      properties:
+        event:
+          $ref: "#/components/schemas/LogEvent"
+        attack_type:
+          type: string
+          example: "Brute Force"
+        mitre:
+          $ref: "#/components/schemas/MITREInfo"
+        severity:
+          $ref: "#/components/schemas/Severity"
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.95
+        iocs:
+          type: array
+          items:
+            type: string
+          description: Indicators of compromise extracted from the log
+          example: ["192.168.1.100", "root"]
+        summary:
+          type: string
+          example: "Multiple failed SSH login attempts from 192.168.1.100."
+        remediation:
+          type: string
+          example: "Block the source IP and rotate account credentials. Enable fail2ban."
+        processed_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:01Z"
+
+    ClassifyRequest:
+      type: object
+      required: [log]
+      properties:
+        log:
+          type: string
+          maxLength: 8192
+          description: Raw log line to classify
+          example: "<165>1 2024-01-15T10:30:00Z webserver sshd 1234 - Failed password for root from 192.168.1.100 port 22"
+        format:
+          type: string
+          enum: [syslog, json, auto]
+          default: auto
+          description: Hint for the parser; `auto` tries all formats in order
+
+    ValidationError:
+      type: object
+      required: [error, field]
+      properties:
+        error:
+          type: string
+          example: "log field must not exceed 8192 bytes"
+        field:
+          type: string
+          example: log
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: "semantic search not configured"
+
+    HealthOK:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+
+    HealthReady:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ready, "not ready"]
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            llm: ok
+            qdrant: ok
+
+    IngestRequest:
+      type: object
+      required: [logs]
+      properties:
+        logs:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 500
+          description: Raw log lines to classify
+        format:
+          type: string
+          enum: [syslog, json, auto]
+          default: auto
+
+    IngestResponse:
+      type: object
+      required: [accepted, classified, errors, results]
+      properties:
+        accepted:
+          type: integer
+          description: Number of lines successfully parsed
+          example: 47
+        classified:
+          type: integer
+          description: Number of lines successfully classified by LLM
+          example: 45
+        errors:
+          type: integer
+          description: Number of classification failures
+          example: 2
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClassifiedEvent"
+
+    SearchHit:
+      type: object
+      required: [event_id, timestamp, source, attack_type, severity, summary, mitre_tactic, score]
+      properties:
+        event_id:
+          type: string
+          example: "Failed password f"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:01Z"
+        source:
+          type: string
+          enum: [syslog, json, raw]
+          example: syslog
+        attack_type:
+          type: string
+          example: "Brute Force"
+        severity:
+          $ref: "#/components/schemas/Severity"
+        summary:
+          type: string
+          example: "Multiple failed SSH login attempts from 192.168.1.100."
+        mitre_tactic:
+          type: string
+          example: "Credential Access"
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Cosine similarity score (1.0 = perfect match)
+          example: 0.97
+
+    AttackCount:
+      type: object
+      required: [count, severity]
+      properties:
+        count:
+          type: integer
+          example: 87
+        severity:
+          $ref: "#/components/schemas/Severity"
+
+    TimelineBucket:
+      type: object
+      required: [time, counts]
+      properties:
+        time:
+          type: string
+          description: Bucket start time formatted as HH:MM (UTC)
+          example: "10:30"
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Event count per severity (P1, P2, P3)
+          example:
+            P1: 1
+            P2: 5
+            P3: 4
+
+    AnalyticsSummary:
+      type: object
+      required: [total_events, attack_type_counts, timeline, mitre_tactics]
+      properties:
+        total_events:
+          type: integer
+          description: Number of events currently in the ring buffer (max 1000)
+          example: 142
+        attack_type_counts:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/AttackCount"
+        timeline:
+          type: array
+          description: 36 × 10-minute buckets covering the last 6 hours
+          items:
+            $ref: "#/components/schemas/TimelineBucket"
+        mitre_tactics:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Event count per MITRE ATT&CK tactic
+          example:
+            "Credential Access": 87
+            "Discovery": 31
+
+  requestBodies:
+    ClassifyRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ClassifyRequest"
+          examples:
+            syslog_rfc5424:
+              summary: RFC 5424 syslog — SSH brute force
+              value:
+                log: "<165>1 2024-01-15T10:30:00Z webserver sshd 1234 - Failed password for root from 192.168.1.100 port 22"
+                format: syslog
+            syslog_rfc3164:
+              summary: RFC 3164 (BSD) syslog — sudo privilege escalation
+              value:
+                log: "<85>Jan 15 10:30:00 appserver sudo: user1 : TTY=pts/0 ; PWD=/root ; USER=root ; COMMAND=/bin/bash"
+                format: syslog
+            json_log:
+              summary: JSON log — failed authentication
+              value:
+                log: '{"level":"error","msg":"authentication failed","time":"2024-01-15T10:30:00Z","hostname":"auth-01","user":"admin","ip":"203.0.113.5"}'
+                format: json
+            raw_log:
+              summary: Raw unstructured log
+              value:
+                log: "Jan 15 10:30:00 KERNEL: UFW BLOCK IN=eth0 OUT= SRC=10.0.0.1 DST=192.168.1.1 PROTO=TCP DPT=22"
+                format: auto
+            benign_log:
+              summary: Benign cron job log
+              value:
+                log: "<13>1 2024-01-15T10:30:00Z server cron 8742 - (root) CMD (/usr/bin/certbot renew --quiet)"
+                format: auto
+
+  responses:
+    ClassifiedEvent:
+      description: Successful classification result
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ClassifiedEvent"
+          examples:
+            brute_force:
+              summary: SSH brute force — P2 High
+              value:
+                attack_type: Brute Force
+                severity: P2
+                confidence: 0.95
+                iocs: ["192.168.1.100", "root"]
+                summary: "Multiple failed SSH login attempts from 192.168.1.100 targeting root."
+                remediation: "Block 192.168.1.100 at the firewall. Enable fail2ban on the SSH port. Rotate root credentials."
+                mitre:
+                  tactic: Credential Access
+                  technique_id: T1110.001
+                  technique: Password Guessing
+                event:
+                  raw: "<165>1 2024-01-15T10:30:00Z webserver sshd 1234 - Failed password for root from 192.168.1.100 port 22"
+                  timestamp: "2024-01-15T10:30:00Z"
+                  hostname: webserver
+                  app_name: sshd
+                  proc_id: "1234"
+                  message: "Failed password for root from 192.168.1.100 port 22"
+                  source: syslog
+                processed_at: "2024-01-15T10:30:01Z"
+            sql_injection:
+              summary: SQL injection attempt — P2 High
+              value:
+                attack_type: SQL Injection
+                severity: P2
+                confidence: 0.91
+                iocs: ["203.0.113.42", "' OR 1=1--"]
+                summary: "SQL injection attempt detected in web application login form from 203.0.113.42."
+                remediation: "Block the source IP. Parameterise all SQL queries. Review WAF rules."
+                mitre:
+                  tactic: Initial Access
+                  technique_id: T1190
+                  technique: Exploit Public-Facing Application
+                event:
+                  raw: '{"level":"warn","msg":"SQL injection detected","ip":"203.0.113.42","payload":"'' OR 1=1--"}'
+                  timestamp: "2024-01-15T10:30:00Z"
+                  hostname: web-01
+                  message: "SQL injection detected"
+                  source: json
+                processed_at: "2024-01-15T10:30:01Z"
+            benign:
+              summary: Benign event — P5 Info
+              value:
+                attack_type: Benign
+                severity: P5
+                confidence: 0.99
+                iocs: []
+                summary: "Routine certbot certificate renewal."
+                remediation: "No action required."
+                mitre:
+                  tactic: "N/A"
+                  technique_id: "N/A"
+                  technique: "N/A"
+                event:
+                  raw: "<13>1 2024-01-15T10:30:00Z server cron 8742 - (root) CMD (/usr/bin/certbot renew --quiet)"
+                  timestamp: "2024-01-15T10:30:00Z"
+                  hostname: server
+                  app_name: cron
+                  proc_id: "8742"
+                  message: "(root) CMD (/usr/bin/certbot renew --quiet)"
+                  source: syslog
+                processed_at: "2024-01-15T10:30:01Z"
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+          examples:
+            empty_log:
+              summary: Missing log field
+              value:
+                error: "log field is required"
+                field: log
+            oversized:
+              summary: Log line too large
+              value:
+                error: "log field must not exceed 8192 bytes"
+                field: log
+            bad_format:
+              summary: Invalid format value
+              value:
+                error: "format must be one of: syslog, json, auto"
+                field: format
+
+    RateLimited:
+      description: Rate limit exceeded (100 req/s per IP)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "rate limit exceeded"
+
+    InternalError:
+      description: Classification or server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: "stream open: context deadline exceeded"

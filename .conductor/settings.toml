@@ -1,0 +1,18 @@
+#:schema https://conductor.build/schemas/settings.repo.schema.json
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+# Copy any .env file from the repo root into each workspace so API keys
+# (KIMCHI_API_KEY, OPENAI_API_KEY) are available without manual setup.
+file_include_globs = ".env*"
+
+[scripts]
+# Pre-download module cache and compile the binary so Run starts instantly.
+setup = "cd siemagent && go mod download && go build -o siemagent ."
+
+# Requires KIMCHI_API_KEY (or OPENAI_API_KEY) set in .env or the environment.
+run = "cd siemagent && ./siemagent --serve --port $CONDUCTOR_PORT"
+
+# Each workspace gets a unique CONDUCTOR_PORT, so parallel workspaces are safe.
+run_mode = "concurrent"
+
+archive = "rm -f siemagent/siemagent"

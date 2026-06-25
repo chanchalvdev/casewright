@@ -1,0 +1,86 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"net"
+	"net/http"
+	"sync"
+	"time"
+)
+
+type healthCache struct {
+	mu        sync.Mutex
+	checks    map[string]string
+	status    int
+	expiresAt time.Time
+}
+
+var hc = &healthCache{}
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+	hc.mu.Lock()
+	if time.Now().Before(hc.expiresAt) {
+		checks, status := hc.checks, hc.status
+		hc.mu.Unlock()
+		writeJSON(w, status, map[string]interface{}{
+			"status": readyStatusText(status),
+			"checks": checks,
+		})
+		return
+	}
+	hc.mu.Unlock()
+
+	checks := make(map[string]string)
+	allOK := true
+
+	// Check LLM reachability
+	llmCtx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	if err := s.classifier.Ping(llmCtx); err != nil {
+		checks["llm"] = "error: " + err.Error()
+		allOK = false
+	} else {
+		checks["llm"] = "ok"
+	}
+
+	// Check Qdrant gRPC port
+	if s.cfg.QdrantAddr != "" {
+		conn, err := net.DialTimeout("tcp", s.cfg.QdrantAddr, 2*time.Second)
+		if err != nil {
+			checks["qdrant"] = "error: " + err.Error()
+			allOK = false
+		} else {
+			conn.Close()
+			checks["qdrant"] = "ok"
+		}
+	}
+
+	status := http.StatusOK
+	if !allOK {
+		status = http.StatusServiceUnavailable
+	}
+
+	hc.mu.Lock()
+	hc.checks = checks
+	hc.status = status
+	hc.expiresAt = time.Now().Add(10 * time.Second)
+	hc.mu.Unlock()
+
+	writeJSON(w, status, map[string]interface{}{
+		"status": readyStatusText(status),
+		"checks": checks,
+	})
+}
+
+func readyStatusText(code int) string {
+	if code == http.StatusOK {
+		return "ready"
+	}
+	return "not ready"
+}
