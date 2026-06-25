@@ -1,77 +1,134 @@
 BIN     := siemagent
 BINARY  := ./bin/$(BIN)
 WEB_DIR := web
+PORT   ?= $${CONDUCTOR_PORT:-8080}
 
-.PHONY: build run serve test vet clean setup dev docker-up docker-down seed build-all
+.PHONY: help build build-all build-frontend embed-binary \
+        run serve dev \
+        test test-integration vet lint \
+        setup docker-up docker-down pull-models \
+        seed clean check-env
+
+# ── Default ────────────────────────────────────────────────────────────────────
+
+help:
+	@echo ""
+	@echo "  Go SIEM Agent — LLM Classifier"
+	@echo ""
+	@echo "  Setup"
+	@echo "    make setup          Create .env, download Go deps, install npm deps"
+	@echo "    make docker-up      Start Qdrant, Postgres, Ollama via Docker"
+	@echo "    make docker-down    Stop Docker services"
+	@echo "    make pull-models    Pull required Ollama embedding models"
+	@echo ""
+	@echo "  Development"
+	@echo "    make dev            Run Go backend + Vite frontend in parallel"
+	@echo "    make serve          Build and run HTTP server only (port 8080)"
+	@echo "    make run            Build and run CLI mode against sample.log"
+	@echo ""
+	@echo "  Build"
+	@echo "    make build          Build Go binary"
+	@echo "    make build-all      Build frontend + embed into Go binary"
+	@echo ""
+	@echo "  Quality"
+	@echo "    make test           Run all unit tests with race detector"
+	@echo "    make test-integration  Run integration tests (needs Qdrant)"
+	@echo "    make vet            Run go vet"
+	@echo "    make lint           Run golangci-lint (install if missing)"
+	@echo ""
+	@echo "  Utilities"
+	@echo "    make seed           Send 10 sample syslog events to /classify"
+	@echo "    make clean          Remove build artifacts"
+	@echo ""
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 
 build:
+	@mkdir -p bin
 	go build -o $(BINARY) ./cmd/siemagent
-
-build-all: build-frontend embed-binary
+	@echo "Built: $(BINARY)"
 
 build-frontend:
 	cd $(WEB_DIR) && npm run build
 
-embed-binary:
+embed-binary: build-frontend
+	@mkdir -p bin
 	go build -ldflags="-s -w" -o $(BINARY) ./cmd/siemagent
 	@echo "Binary built with embedded frontend: $(BINARY)"
 
+build-all: embed-binary
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 
-run: build
+run: check-env build
 	$(BINARY) sample.log
 
-serve: build
-	$(BINARY) --serve --port $${CONDUCTOR_PORT:-8080}
+serve: check-env build
+	$(BINARY) --serve --port $(PORT)
 
 # ── Dev (live reload) ─────────────────────────────────────────────────────────
 
-dev:
-	@echo "Starting Go server (air) + Vite dev server in parallel..."
+dev: check-env
+	@echo "Starting Go backend + Vite frontend..."
 	@trap 'kill 0' SIGINT SIGTERM; \
 	  (cd $(WEB_DIR) && npm run dev) & \
-	  (air -c .air.toml 2>/dev/null || go run ./cmd/siemagent --serve) & \
+	  (air -c .air.toml 2>/dev/null || go run ./cmd/siemagent --serve --port $(PORT)) & \
 	  wait
 
 # ── Test ──────────────────────────────────────────────────────────────────────
 
 test:
-	go test ./... -v -race
+	go test ./... -v -race -timeout 60s
 
 test-integration:
-	go test -tags integration ./... -v
+	go test -tags integration ./... -v -timeout 120s
 
 vet:
 	go vet ./...
 
+lint:
+	@if ! command -v golangci-lint &>/dev/null; then \
+	  echo "Installing golangci-lint..."; \
+	  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
+	fi
+	golangci-lint run ./...
+
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
 setup:
-	@if [ ! -f .env ]; then cp .env.example .env && echo "Created .env from .env.example"; fi
-	go mod download
-	@if [ -d $(WEB_DIR) ]; then cd $(WEB_DIR) && npm install; fi
 	@mkdir -p bin
+	@if [ ! -f .env ]; then \
+	  cp .env.example .env; \
+	  echo "Created .env — fill in KIMCHI_API_KEY before running"; \
+	else \
+	  echo ".env already exists, skipping"; \
+	fi
+	go mod download
+	@echo "Go deps downloaded"
+	@if [ -d $(WEB_DIR) ]; then \
+	  cd $(WEB_DIR) && npm install; \
+	  echo "Frontend deps installed"; \
+	fi
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
 docker-up:
 	docker compose up -d
-	@echo "Services starting... run 'docker compose ps' to check status."
+	@echo "Waiting for services to be healthy..."
+	@docker compose ps
 
 docker-down:
 	docker compose down
+	@echo "Services stopped"
 
 pull-models:
+	@echo "Pulling Ollama models (nomic-embed-text ~274 MB)..."
 	bash scripts/pull-models.sh
 
 # ── Seed ──────────────────────────────────────────────────────────────────────
 
-PORT ?= $${CONDUCTOR_PORT:-8080}
-
 seed:
-	@echo "Seeding POST /classify with 10 sample syslog lines..."
+	@echo "Seeding POST /classify with 10 sample syslog events..."
 	@for line in \
 	  '<34>1 2024-01-15T10:30:00Z webserver01 sshd 1234 - Failed password for root from 192.168.1.100 port 22' \
 	  '<34>1 2024-01-15T10:30:01Z webserver01 sshd 1234 - Failed password for root from 192.168.1.100 port 22' \
@@ -90,8 +147,19 @@ seed:
 	  echo "---"; \
 	done
 
+# ── Guard ─────────────────────────────────────────────────────────────────────
+
+check-env:
+	@if [ ! -f .env ]; then \
+	  echo "ERROR: .env file not found. Run 'make setup' first."; exit 1; \
+	fi
+	@if [ -z "$$(grep -E '^KIMCHI_API_KEY=.+' .env 2>/dev/null)" ]; then \
+	  echo "ERROR: KIMCHI_API_KEY is not set in .env"; exit 1; \
+	fi
+
 # ── Clean ─────────────────────────────────────────────────────────────────────
 
 clean:
 	rm -rf bin/
 	@if [ -d $(WEB_DIR)/dist ]; then rm -rf $(WEB_DIR)/dist; fi
+	@echo "Cleaned build artifacts"
