@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Shield, Search, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Shield, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown } from 'lucide-react'
 import { classifyLog } from '../lib/api'
 import type { ClassifiedEvent } from '../lib/api'
 import type { Severity } from '../styles/tokens'
@@ -13,32 +13,28 @@ import { SimilarEvents } from '../components/SimilarEvents'
 import { AnalyticsPanel } from '../components/AnalyticsPanel'
 
 const ALL_SEVERITIES: Severity[] = ['P1', 'P2', 'P3', 'P4', 'P5']
-
 const EVENTS_KEY = 'classified-events'
 
 function useEventStore() {
   const qc = useQueryClient()
-
   const { data: events = [] } = useQuery<ClassifiedEvent[]>({
     queryKey: [EVENTS_KEY],
     queryFn: () => [],
     staleTime: Infinity,
   })
-
   function addEvent(ev: ClassifiedEvent) {
     qc.setQueryData<ClassifiedEvent[]>([EVENTS_KEY], (prev = []) => [ev, ...prev])
   }
-
   function addEvents(evs: ClassifiedEvent[]) {
     qc.setQueryData<ClassifiedEvent[]>([EVENTS_KEY], (prev = []) => [...evs.reverse(), ...prev])
   }
-
   function clear() {
     qc.setQueryData<ClassifiedEvent[]>([EVENTS_KEY], [])
   }
-
   return { events, addEvent, addEvents, clear }
 }
+
+type Tab = 'events' | 'analytics'
 
 export function Dashboard() {
   const { events, addEvent, addEvents, clear } = useEventStore()
@@ -47,9 +43,17 @@ export function Dashboard() {
   const [classifying, setClassifying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [severityFilter, setSeverityFilter] = useState<Set<Severity>>(new Set(ALL_SEVERITIES))
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<Tab>('events')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const filtered = events.filter((e) => severityFilter.has(e.severity as Severity))
+
+  const severityCounts = ALL_SEVERITIES.reduce((acc, s) => {
+    acc[s] = events.filter(e => e.severity === s).length
+    return acc
+  }, {} as Record<Severity, number>)
 
   async function handleClassify(e: React.FormEvent) {
     e.preventDefault()
@@ -60,6 +64,7 @@ export function Dashboard() {
       const ev = await classifyLog(logInput.trim())
       addEvent(ev)
       setSelected(ev)
+      setDetailOpen(true)
       setLogInput('')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -78,48 +83,102 @@ export function Dashboard() {
     })
   }
 
+  function handleSelectEvent(ev: ClassifiedEvent) {
+    setSelected(ev === selected ? null : ev)
+    setDetailOpen(ev !== selected)
+  }
+
   return (
-    <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-60 shrink-0 border-r border-gray-800 flex flex-col">
-        <div className="px-4 py-5 border-b border-gray-800">
-          <div className="flex items-center gap-2">
-            <Shield size={20} className="text-blue-400" />
-            <span className="font-semibold text-white">SIEMAgent</span>
+    <div className="flex h-screen bg-[#0a0f1e] text-gray-100 overflow-hidden">
+
+      {/* ── Sidebar overlay (mobile) ── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar ── */}
+      <aside className={`
+        fixed top-0 left-0 h-full z-50 w-64 bg-[#0d1426] border-r border-white/5
+        flex flex-col transition-transform duration-300 ease-in-out
+        lg:static lg:translate-x-0 lg:z-auto
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        {/* Logo */}
+        <div className="px-5 py-5 border-b border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+              <Shield size={16} className="text-white" />
+            </div>
+            <div>
+              <p className="font-semibold text-white text-sm leading-tight">SIEMAgent</p>
+              <p className="text-[10px] text-gray-500 leading-tight">AI Security Classifier</p>
+            </div>
           </div>
-          <p className="text-xs text-gray-500 mt-0.5">AI Security Classifier</p>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-500 hover:text-gray-300">
+            <X size={18} />
+          </button>
         </div>
 
-        <nav className="px-2 py-4 space-y-1">
-          <div className="px-2 py-1.5 rounded bg-gray-800 text-sm text-white flex items-center gap-2">
-            <AlertTriangle size={15} className="text-blue-400" />
-            Dashboard
-          </div>
-          <div className="px-2 py-1.5 rounded text-sm text-gray-400 hover:text-gray-200 flex items-center gap-2 cursor-pointer">
-            <Search size={15} />
-            Search
-          </div>
+        {/* Nav */}
+        <nav className="px-3 py-4 space-y-1">
+          <button
+            onClick={() => { setActiveTab('events'); setSidebarOpen(false) }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              activeTab === 'events'
+                ? 'bg-blue-600/20 text-blue-400 font-medium'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+            }`}
+          >
+            <AlertTriangle size={16} />
+            Events
+            {events.length > 0 && (
+              <span className="ml-auto text-xs bg-blue-600/30 text-blue-400 px-1.5 py-0.5 rounded-full">
+                {events.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => { setActiveTab('analytics'); setSidebarOpen(false) }}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+              activeTab === 'analytics'
+                ? 'bg-blue-600/20 text-blue-400 font-medium'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+            }`}
+          >
+            <BarChart2 size={16} />
+            Analytics
+          </button>
         </nav>
 
-        <div className="px-4 py-4 border-t border-gray-800 mt-auto">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Severity Filter</p>
-          <div className="space-y-1.5">
+        {/* Severity filter */}
+        <div className="px-4 py-4 border-t border-white/5 mt-auto">
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">Filter by Severity</p>
+          <div className="space-y-2">
             {ALL_SEVERITIES.map((s) => (
-              <label key={s} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={severityFilter.has(s)}
-                  onChange={() => toggleSeverity(s)}
-                  className="rounded border-gray-600 bg-gray-800 accent-blue-500"
-                />
+              <label key={s} className="flex items-center gap-2 cursor-pointer group">
+                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                  severityFilter.has(s)
+                    ? 'bg-blue-600 border-blue-600'
+                    : 'border-gray-600 bg-transparent'
+                }`} onClick={() => toggleSeverity(s)}>
+                  {severityFilter.has(s) && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
                 <SeverityBadge severity={s} size="sm" />
+                <span className="ml-auto text-xs text-gray-600">{severityCounts[s] || 0}</span>
               </label>
             ))}
           </div>
           {events.length > 0 && (
             <button
               onClick={clear}
-              className="mt-3 w-full text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
+              className="mt-4 w-full text-xs text-gray-600 hover:text-red-400 flex items-center justify-center gap-1.5 py-1.5 rounded border border-white/5 hover:border-red-900/50 transition-colors"
             >
               <RefreshCw size={11} /> Clear all ({events.length})
             </button>
@@ -127,145 +186,272 @@ export function Dashboard() {
         </div>
       </aside>
 
-      {/* Main */}
-      <div className="flex flex-1 min-w-0">
-        <div className="flex flex-col flex-1 min-w-0">
-          {/* Header */}
-          <header className="sticky top-0 z-10 bg-gray-950/90 backdrop-blur border-b border-gray-800 px-4 py-3 flex items-center gap-3">
-            <DropZone onResults={addEvents} />
-            <form onSubmit={handleClassify} className="flex-1 flex gap-2">
-              <input
-                ref={inputRef}
-                value={logInput}
-                onChange={(e) => setLogInput(e.target.value)}
-                placeholder="Paste a log line and press Enter to classify…"
-                className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm font-log text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-600"
-              />
-              <button
-                type="submit"
-                disabled={classifying || !logInput.trim()}
-                className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
-              >
-                {classifying ? 'Classifying…' : 'Classify'}
-              </button>
-            </form>
-          </header>
+      {/* ── Main content ── */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+
+        {/* ── Top navbar ── */}
+        <header className="shrink-0 bg-[#0d1426]/80 backdrop-blur border-b border-white/5 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-gray-400 hover:text-gray-200 p-1"
+            >
+              <Menu size={20} />
+            </button>
+
+            <div className="flex-1 flex items-center gap-2 min-w-0">
+              <DropZone onResults={addEvents} />
+              <form onSubmit={handleClassify} className="flex-1 flex gap-2 min-w-0">
+                <input
+                  ref={inputRef}
+                  value={logInput}
+                  onChange={(e) => setLogInput(e.target.value)}
+                  placeholder="Paste a log line and press Enter to classify…"
+                  className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:bg-white/8 transition-colors"
+                />
+                <button
+                  type="submit"
+                  disabled={classifying || !logInput.trim()}
+                  className="shrink-0 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition-colors flex items-center gap-2"
+                >
+                  {classifying ? (
+                    <>
+                      <Activity size={14} className="animate-pulse" />
+                      <span className="hidden sm:inline">Classifying…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Shield size={14} />
+                      <span className="hidden sm:inline">Classify</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
 
           {error && (
-            <div className="mx-4 mt-3 text-sm text-red-400 bg-red-900/20 border border-red-800 rounded px-3 py-2">
+            <div className="mt-2 text-xs text-red-400 bg-red-900/20 border border-red-800/50 rounded-lg px-3 py-2 flex items-center gap-2">
+              <AlertTriangle size={12} />
               {error}
             </div>
           )}
+        </header>
 
-          {/* Event list */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-            {filtered.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center text-gray-600 py-20">
-                <Shield size={48} className="mb-4 opacity-20" />
-                <p className="text-sm">No events yet.</p>
-                <p className="text-xs mt-1">Paste a log line above or upload a file to get started.</p>
-              </div>
-            )}
-            {filtered.map((ev, i) => (
-              <EventCard
-                key={`${ev.processed_at}-${i}`}
-                event={ev}
-                onClick={() => setSelected(ev === selected ? null : ev)}
-                selected={ev === selected}
-              />
-            ))}
-          </div>
+        {/* ── Mobile tab bar ── */}
+        <div className="lg:hidden flex border-b border-white/5 bg-[#0d1426]/50 shrink-0">
+          {(['events', 'analytics'] as Tab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2.5 text-xs font-medium capitalize transition-colors ${
+                activeTab === tab
+                  ? 'text-blue-400 border-b-2 border-blue-500'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
 
-        {/* Detail panel */}
-        {selected && (
-          <aside className="w-96 shrink-0 border-l border-gray-800 overflow-y-auto">
-            <div className="p-4 space-y-4">
-              <div className="flex items-start justify-between gap-2">
-                <SeverityBadge severity={selected.severity as Severity} size="md" />
-                <button
-                  onClick={() => setSelected(null)}
-                  className="text-gray-500 hover:text-gray-300 text-lg leading-none"
-                >
-                  ×
-                </button>
-              </div>
+        {/* ── Body ── */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
 
-              <div>
-                <h2 className="text-base font-semibold text-white">{selected.attack_type}</h2>
-                <p className="text-sm text-gray-400 mt-1">{selected.summary}</p>
-              </div>
-
-              {selected.mitre && (
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1.5">MITRE ATT&CK</p>
-                  <MITREBadge
-                    tactic={selected.mitre.tactic}
-                    technique={selected.mitre.technique_id}
-                  />
-                  {selected.mitre.technique && (
-                    <p className="text-xs text-gray-500 mt-1">{selected.mitre.technique}</p>
-                  )}
-                </div>
-              )}
-
-              {selected.iocs?.length > 0 && (
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1.5">Indicators of Compromise</p>
-                  <IOCList iocs={selected.iocs} />
-                </div>
-              )}
-
-              {selected.remediation && (
-                <div>
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1.5">Recommended Action</p>
-                  <p className="text-sm text-gray-300 leading-relaxed">{selected.remediation}</p>
-                </div>
-              )}
-
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1.5">Confidence</p>
+          {/* Events list */}
+          <div className={`
+            flex flex-col flex-1 min-w-0 overflow-hidden
+            ${activeTab !== 'events' ? 'hidden lg:flex' : 'flex'}
+          `}>
+            {/* Stats bar */}
+            {events.length > 0 && (
+              <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-white/5 bg-[#0d1426]/30 overflow-x-auto">
+                <span className="text-xs text-gray-500 shrink-0">{filtered.length} events</span>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 rounded-full"
-                      style={{ width: `${Math.round((selected.confidence ?? 0) * 100)}%` }}
-                    />
+                  {ALL_SEVERITIES.filter(s => severityCounts[s] > 0).map(s => (
+                    <div key={s} className="flex items-center gap-1 shrink-0">
+                      <SeverityBadge severity={s} size="sm" />
+                      <span className="text-xs text-gray-500">{severityCounts[s]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Event cards */}
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-20 px-6">
+                  <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4">
+                    <Shield size={28} className="text-gray-600" />
                   </div>
-                  <span className="text-sm text-gray-400">{Math.round((selected.confidence ?? 0) * 100)}%</span>
+                  <p className="text-sm text-gray-400 font-medium">No events yet</p>
+                  <p className="text-xs text-gray-600 mt-1 max-w-xs">
+                    Paste a log line in the input above or upload a .log file to start classifying
+                  </p>
                 </div>
-              </div>
-
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1.5">Raw Log</p>
-                <pre className="text-xs font-log text-gray-400 bg-gray-900 rounded p-3 overflow-x-auto whitespace-pre-wrap break-all border border-gray-800">
-                  {selected.event.raw}
-                </pre>
-              </div>
-
-              <div className="text-xs text-gray-600">
-                <span>Source: {selected.event.source}</span>
-                {selected.event.hostname && <span> · {selected.event.hostname}</span>}
-                {selected.event.app_name && <span> / {selected.event.app_name}</span>}
-              </div>
-
-              {/* Similar past events via RAG */}
-              {selected.summary && (
-                <div className="border-t border-gray-800 pt-4">
-                  <SimilarEvents summary={selected.summary} />
-                </div>
+              ) : (
+                filtered.map((ev, i) => (
+                  <EventCard
+                    key={`${ev.processed_at}-${i}`}
+                    event={ev}
+                    onClick={() => handleSelectEvent(ev)}
+                    selected={ev === selected}
+                  />
+                ))
               )}
             </div>
-          </aside>
-        )}
+          </div>
 
-        {/* Analytics panel — shown when no event is selected */}
-        {!selected && (
-          <aside className="w-80 shrink-0 border-l border-gray-800 overflow-y-auto">
+          {/* Analytics tab (mobile) / always visible on desktop */}
+          <div className={`
+            ${activeTab !== 'analytics' ? 'hidden lg:block' : 'flex flex-col flex-1'}
+            lg:w-80 lg:shrink-0 lg:border-l lg:border-white/5 lg:overflow-y-auto
+            ${selected ? 'lg:hidden xl:block' : ''}
+          `}>
             <AnalyticsPanel />
-          </aside>
-        )}
+          </div>
+
+          {/* Detail panel — slides in on mobile, static on desktop */}
+          {selected && (
+            <>
+              {/* Mobile overlay */}
+              <div
+                className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm xl:hidden"
+                onClick={() => { setSelected(null); setDetailOpen(false) }}
+              />
+              <div className={`
+                fixed bottom-0 left-0 right-0 z-40 max-h-[85vh] overflow-y-auto
+                bg-[#0d1426] border-t border-white/10 rounded-t-2xl
+                xl:static xl:max-h-none xl:rounded-none xl:border-t-0 xl:border-l xl:border-white/5
+                xl:w-96 xl:shrink-0 xl:overflow-y-auto
+                ${detailOpen ? 'translate-y-0' : 'translate-y-full'}
+                transition-transform duration-300 xl:translate-y-0
+              `}>
+                {/* Mobile drag handle */}
+                <div className="xl:hidden flex justify-center pt-3 pb-1">
+                  <div className="w-10 h-1 rounded-full bg-white/20" />
+                </div>
+
+                <DetailPanel
+                  event={selected}
+                  onClose={() => { setSelected(null); setDetailOpen(false) }}
+                />
+              </div>
+            </>
+          )}
+        </div>
       </div>
+    </div>
+  )
+}
+
+function DetailPanel({ event, onClose }: { event: ClassifiedEvent; onClose: () => void }) {
+  const [remOpen, setRemOpen] = useState(true)
+  const sev = event.severity as Severity
+  const confidence = Math.round((event.confidence ?? 0) * 100)
+
+  return (
+    <div className="p-4 space-y-5">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <SeverityBadge severity={sev} size="md" />
+        </div>
+        <button
+          onClick={onClose}
+          className="shrink-0 p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-white/10 transition-colors"
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Title + summary */}
+      <div>
+        <h2 className="text-base font-semibold text-white leading-snug">{event.attack_type}</h2>
+        <p className="text-sm text-gray-400 mt-1.5 leading-relaxed">{event.summary}</p>
+      </div>
+
+      {/* Confidence */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest">Confidence</p>
+          <span className="text-xs font-mono text-gray-400">{confidence}%</span>
+        </div>
+        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all"
+            style={{
+              width: `${confidence}%`,
+              background: confidence >= 80 ? '#3B82F6' : confidence >= 60 ? '#F59E0B' : '#6B7280'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* MITRE */}
+      {event.mitre && event.mitre.tactic !== 'N/A' && (
+        <div>
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">MITRE ATT&CK</p>
+          <div className="bg-white/5 rounded-xl p-3 space-y-2 border border-white/5">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs text-gray-300">{event.mitre.tactic}</span>
+              <MITREBadge tactic="" technique={event.mitre.technique_id} />
+            </div>
+            {event.mitre.technique && (
+              <p className="text-xs text-gray-500">{event.mitre.technique}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* IOCs */}
+      {event.iocs?.length > 0 && (
+        <div>
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Indicators of Compromise</p>
+          <IOCList iocs={event.iocs} />
+        </div>
+      )}
+
+      {/* Remediation collapsible */}
+      {event.remediation && (
+        <div className="border border-white/5 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setRemOpen(o => !o)}
+            className="w-full flex items-center justify-between px-3 py-2.5 text-left bg-white/5 hover:bg-white/8 transition-colors"
+          >
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest">Recommended Action</p>
+            <ChevronDown size={14} className={`text-gray-500 transition-transform ${remOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {remOpen && (
+            <div className="px-3 py-3">
+              <p className="text-xs text-gray-300 leading-relaxed">{event.remediation}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Raw log */}
+      <div>
+        <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Raw Log</p>
+        <pre className="text-xs font-mono text-gray-400 bg-black/30 rounded-xl p-3 overflow-x-auto whitespace-pre-wrap break-all border border-white/5">
+          {event.event.raw}
+        </pre>
+      </div>
+
+      {/* Meta */}
+      <div className="flex flex-wrap gap-2 text-[10px] text-gray-600">
+        <span className="bg-white/5 rounded px-2 py-1">Source: {event.event.source}</span>
+        {event.event.hostname && <span className="bg-white/5 rounded px-2 py-1">{event.event.hostname}</span>}
+        {event.event.app_name && <span className="bg-white/5 rounded px-2 py-1">{event.event.app_name}</span>}
+      </div>
+
+      {/* Similar events */}
+      {event.summary && (
+        <div className="border-t border-white/5 pt-4">
+          <SimilarEvents summary={event.summary} />
+        </div>
+      )}
     </div>
   )
 }

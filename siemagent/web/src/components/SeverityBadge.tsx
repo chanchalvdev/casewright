@@ -1,12 +1,20 @@
 import type { Severity } from '../styles/tokens'
-import { SEVERITY_BG } from '../styles/tokens'
+import { SEVERITY_LABELS } from '../styles/tokens'
 
-export const SEVERITY_LABELS: Record<Severity, string> = {
-  P1: 'Critical',
-  P2: 'High',
-  P3: 'Medium',
-  P4: 'Low',
-  P5: 'Info',
+const SEVERITY_STYLES: Record<Severity, string> = {
+  P1: 'bg-red-500/15 text-red-400 border-red-500/30',
+  P2: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  P3: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+  P4: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  P5: 'bg-gray-500/15 text-gray-400 border-gray-500/30',
+}
+
+const DOT_STYLES: Record<Severity, string> = {
+  P1: 'bg-red-400',
+  P2: 'bg-orange-400',
+  P3: 'bg-yellow-400',
+  P4: 'bg-blue-400',
+  P5: 'bg-gray-400',
 }
 
 interface Props {
@@ -16,15 +24,16 @@ interface Props {
 
 export function SeverityBadge({ severity, size = 'md' }: Props) {
   const sizeClass = size === 'sm'
-    ? 'text-xs px-1.5 py-0.5'
-    : 'text-sm px-2 py-1'
-
-  const pulseClass = severity === 'P1' ? 'severity-pulse' : ''
+    ? 'text-[10px] px-1.5 py-0.5 gap-1'
+    : 'text-xs px-2 py-1 gap-1.5'
 
   return (
-    <span
-      className={`inline-flex items-center font-mono font-semibold rounded border ${sizeClass} ${SEVERITY_BG[severity]} ${pulseClass}`}
-    >
+    <span className={`
+      inline-flex items-center font-mono font-semibold rounded-md border
+      ${sizeClass} ${SEVERITY_STYLES[severity]}
+      ${severity === 'P1' ? 'severity-pulse' : ''}
+    `}>
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${DOT_STYLES[severity]}`} />
       {severity} · {SEVERITY_LABELS[severity]}
     </span>
   )

