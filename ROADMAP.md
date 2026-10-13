@@ -1,9 +1,10 @@
-# Roadmap — from SIEM agent to open-source AI SOC platform
+# Casewright roadmap
 
 ## Vision
 
-An open-source platform that takes a security team from raw logs to a resolved
-incident:
+Casewright is an open-source, local-first AI security analyst. It takes a
+security team from an alert to a resolved case, and turns each confirmed case
+into a better detection rule:
 
 ```
 Ingest  →  Detect  →  Correlate  →  Investigate (AI)  →  Respond  →  Report
@@ -41,12 +42,31 @@ project's LLM agent stands out, so the platform is built around it.
 | 6 | Incidents and case management | Core done (attachments open) |
 | 7 | AI investigation 2.0 | In progress |
 | 8 | Response and automation | Core done (native connectors open) |
-| 9 | Multi-user, RBAC and multi-tenancy | Accounts, roles, audit done (SSO, tenancy open) |
+| 9 | Multi-user, RBAC and multi-tenancy | Accounts, roles, audit done; SSO and tenancy built last |
 | 10 | Advanced analytics and hunting | Planned |
 | 11 | Security agent platform (multi-domain) | Specified (11-01, 11-02); not started |
 | — | Integrations (ongoing track) | Planned |
 | — | AI quality and cost (ongoing track) | Planned |
 | — | Operations and distribution (ongoing track) | Planned |
+
+Phase numbers record when a theme was planned, not the order it is built in.
+
+## Build order
+
+1. Finish Phase 5: field normalisation, built as spec 11-01
+2. Evaluation harness, scored in CI (the gate for every new agent role)
+3. Finding and Entity model (11-01), with a `tenant_id` on new tables from day one
+4. Agent runtime (11-02): roles, tool scopes, budgets, cost metrics
+5. SIEM alert connectors: Wazuh, Elastic, Security Onion
+6. Phase 7 remainder: feedback loop, more enrichment tools
+7. Domain packs, one at a time: detection engineering, then vulnerability triage
+8. Phase 6 and 8 remainder: evidence attachments, native connectors, more channels
+9. Phase 10: UEBA, deception (hunting and compliance arrive as Phase 11 packs)
+10. **Phase 9 last:** SSO, multi-tenancy, per-tenant archival
+
+Until step 10, one deployment serves one organisation; an MSSP runs one
+instance per client. The `tenant_id` column added in step 3 keeps multi-tenancy
+from becoming a retrofit across every table.
 
 ---
 
@@ -273,8 +293,9 @@ One connector per release keeps quality high. Good first targets:
 - [ ] **OpenTelemetry tracing** across ingest → classify → investigate
 - [ ] **Documentation site** — install, configuration, writing rules,
       writing connectors, API reference
-- [ ] **Project name** — "siemagent" undersells a SOC platform; choose a name
-      before the first public release
+- [x] **Project name** — now **Casewright**; docs and UI renamed
+- [ ] **Code rename** — `siemagent` folder, Go module, binary, images and
+      database to `casewright`, in one PR before the first public release
 
 ## Deliberately not building
 

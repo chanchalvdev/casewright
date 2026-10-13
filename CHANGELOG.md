@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- The project is now called **Casewright** (previously Go SIEM Agent). The
+  dashboard, API docs, reports, start-up log line and documentation use the
+  new name, and the repository moved to `chanchalvdev/casewright` (old URLs
+  redirect). The `siemagent` folder, Go module, binary, container images and
+  database keep their names until a later release.
+
 ### Added
 - IOC watchlists: IPs, ranges, domains and file hashes from threat feeds
   (refreshed on a schedule), list files (`IOC_WATCHLIST_DIR`) or analysts.
@@ -93,5 +100,5 @@ raw log line to resolved incident.
 - API keys are compared with HMAC-SHA256 under a per-process key.
 - Webhook URLs are never returned by the API or stored with actions.
 
-[Unreleased]: https://github.com/chanchalvdev/go-siem-agent-llm-classifier/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/chanchalvdev/go-siem-agent-llm-classifier/releases/tag/v0.1.0
+[Unreleased]: https://github.com/chanchalvdev/casewright/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/chanchalvdev/casewright/releases/tag/v0.1.0

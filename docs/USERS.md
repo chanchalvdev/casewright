@@ -1,6 +1,6 @@
 # Users, roles and the audit log
 
-SIEMAgent supports named user accounts with roles, browser login sessions and
+Casewright supports named user accounts with roles, browser login sessions and
 an audit log of who did what. API keys keep working for machines.
 
 ## Roles

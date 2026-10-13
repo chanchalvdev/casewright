@@ -15,7 +15,7 @@ LOAD_ENV := set -a; [ -f .env ] && . ./.env; set +a;
 
 help:
 	@echo ""
-	@echo "  Go SIEM Agent — LLM Classifier"
+	@echo "  Casewright (formerly Go SIEM Agent)"
 	@echo ""
 	@echo "  Setup"
 	@echo "    make setup          Create .env, download Go deps, install npm deps"

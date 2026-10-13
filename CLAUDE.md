@@ -1,13 +1,18 @@
-# Go SIEM Agent — LLM Classifier — Harness Engineering Master Document
+# Casewright — Harness Engineering Master Document
 
 ## Project Overview
+
+Casewright (formerly Go SIEM Agent) is an open-source, local-first AI security
+analyst: alerts in, resolved cases out, confirmed cases turned into new rules.
+The code still uses the old name (`siemagent/` folder, Go module, binary,
+images, database) until a dedicated code-rename PR.
 
 A Go CLI + HTTP server that ingests syslog/JSON log events, classifies them via an
 OpenAI-compatible LLM (Kimchi/local Ollama), maps results to MITRE ATT&CK, and stores
 embeddings in Qdrant for semantic similarity search. Ships a React (Vite) dashboard.
 
 ```
-go-siem-agent-llm-classifier/
+casewright/
 ├── CLAUDE.md                        ← This file (harness bible)
 ├── Makefile                         ← Root task runner (delegates to siemagent/)
 ├── scripts/                         ← Harness automation
@@ -216,3 +221,5 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | `LLM_PROVIDER=none` rules-only mode; demo seeds from `SEED_LOG_FILE` | A first look must not need an API key; the demo is smoke-tested in CI so it cannot rot |
 | 2026-10 | IOC matching in-process (hash maps + per-prefix maps), feeds in memory | Constant-time lookups on every event with no extra service; a failed feed download keeps the last good list |
 | 2026-10 | MTTD from the log time of the opening alert, only when within 24h; MTTA on first assign/status change | Replays and forged timestamps must not distort metrics; a comment is not taking ownership |
+| 2026-10 | Product renamed Casewright; brand and docs first, code identifiers (`siemagent` module, binary, images, DB) in a later PR | It works cases after a SIEM fires, it is not a SIEM; "Casefile" was taken by an open-source SOC tracker. Code rename waits so open PRs are not broken |
+| 2026-10 | Phase 9 (SSO, multi-tenancy) built last; new tables carry a `tenant_id` from 11-01 on | Tenancy is invasive and has no second tenant yet; the column now avoids a retrofit later |
