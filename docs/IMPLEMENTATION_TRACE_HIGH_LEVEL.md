@@ -95,9 +95,9 @@ overlay page.
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | CLI + classify endpoint + parser + MITRE mapping | ✅ done |
-| 2 | Ingest pipeline, Qdrant search, analytics, dashboard | ✅ done |
-| 3 | Agent tool loop, WS live stream, ticker/incident UI, e2e tests | ✅ done |
+| 1 | CLI + classify endpoint + parser + MITRE mapping | done |
+| 2 | Ingest pipeline, Qdrant search, analytics, dashboard | done |
+| 3 | Agent tool loop, WS live stream, ticker/incident UI, e2e tests | done |
 
 ## How to learn this codebase (suggested path)
 

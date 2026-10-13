@@ -33,23 +33,24 @@ project's LLM agent stands out, so the platform is built around it.
 
 | Phase | Theme | Status |
 |---|---|---|
-| 1 | Core classifier: parsing, LLM classification, MITRE mapping | ✅ Done |
-| 2 | RAG: embeddings, Qdrant semantic search, analytics | ✅ Done |
-| 3 | Investigation agent: threat-intel tools, live incident stream | ✅ Done |
-| 4 | Platform foundations | ✅ Done |
-| 5 | Detection engine | 🚧 In progress |
-| 6 | Incidents and case management | 🚧 Core done (attachments open) |
-| 7 | AI investigation 2.0 | 🚧 In progress |
-| 8 | Response and automation | 🚧 Core done (native connectors open) |
-| 9 | Multi-user, RBAC and multi-tenancy | 🚧 Accounts, roles, audit done (SSO, tenancy open) |
+| 1 | Core classifier: parsing, LLM classification, MITRE mapping | Done |
+| 2 | RAG: embeddings, Qdrant semantic search, analytics | Done |
+| 3 | Investigation agent: threat-intel tools, live incident stream | Done |
+| 4 | Platform foundations | Done |
+| 5 | Detection engine | In progress |
+| 6 | Incidents and case management | Core done (attachments open) |
+| 7 | AI investigation 2.0 | In progress |
+| 8 | Response and automation | Core done (native connectors open) |
+| 9 | Multi-user, RBAC and multi-tenancy | Accounts, roles, audit done (SSO, tenancy open) |
 | 10 | Advanced analytics and hunting | Planned |
+| 11 | Security agent platform (multi-domain) | Specified (11-01, 11-02); not started |
 | — | Integrations (ongoing track) | Planned |
 | — | AI quality and cost (ongoing track) | Planned |
 | — | Operations and distribution (ongoing track) | Planned |
 
 ---
 
-## Phase 4 — Platform foundations ✅
+## Phase 4 — Platform foundations
 
 What had to exist before the platform could be used, trusted and open-sourced.
 
@@ -159,6 +160,79 @@ Required before teams or MSSPs can share one deployment. See [docs/USERS.md](doc
 - [ ] **Deception** — lightweight honeypots and honeytokens whose any touch is
       a high-confidence alert
 - [x] **Dashboards** — SOC metrics: MTTD, MTTA, MTTR, alert volume, backlog, analyst workload
+
+## Phase 11 — Security agent platform (multi-domain)
+
+Phases 4–9 built the SOC pipeline. This phase turns the pieces underneath it —
+correlation, case management, the tool registry, approvals, audit — into a
+platform that other security domains plug into, instead of building a separate
+product per domain.
+
+```
+Connectors  →  Finding + Entity  →  Incident / case  →  Agent roles  →  Approved actions
+(logs, scanners,   (one normalised     (one correlation    (scoped tools,   (human gate,
+ cloud, identity)   shape, all domains) engine, one audit)  budgets)         audited)
+```
+
+**Order matters.** Each step makes the next one safe to build; skipping ahead
+adds agents nobody can measure or bound.
+
+### Foundations (build in this order)
+
+- [ ] **Evaluation harness** — labelled cases and a scored baseline, run in CI.
+      Same item as the *Evaluation set* in the AI quality track; it is the gate
+      for everything below. No new agent role ships without an eval suite.
+- [ ] **Finding and Entity model** — one normalised `Finding` for every domain,
+      and `Entity` widened beyond ip/user/host (repo, image, package, service,
+      cloud account, domain, file hash). Completes *Field normalisation* from
+      Phase 5. Spec: [11-01](specs/phase11-01-finding-entity-model.md)
+- [ ] **Asset context** — criticality, owner and environment on entities, read
+      by investigations. Stored and exposed first; automatic re-prioritisation
+      is a separate, explicit decision
+- [ ] **Agent runtime** — one loop, named roles, per-role tool scopes, token /
+      time / tool-call budgets, a concurrency cap, and `ReadOnly` vs `Propose`
+      autonomy. Spec: [11-02](specs/phase11-02-agent-runtime.md)
+- [ ] **Cost visibility** — tokens, tool calls and duration per investigation, in
+      Prometheus and on the incident (delivered by 11-02; completes *Budgets*
+      in the AI quality track)
+
+### Domain packs (one at a time)
+
+A pack is a connector set, an ontology mapping, read-only tools, a role and an
+eval suite. A pack is *done* when its eval baseline is committed and its agent
+runs inside budgets; breadth without that is a demo.
+
+- [ ] **Vulnerability and exposure triage** — Trivy / Nuclei findings enriched
+      with EPSS, KEV and asset context; "is this exploitable here?" as the
+      judgement task. First pack: most findings are noise, which suits an LLM,
+      and the connectors are already on the integration list
+- [ ] **Detection engineering** — an agent proposes Sigma rules and tests from
+      confirmed incidents, replayed against sample logs. Turns LLM cost into a
+      one-time authoring cost and feeds the rules tier. Output is a reviewed
+      pull request, never a live rule
+- [ ] **Cloud posture and identity** — CloudTrail, Okta / Entra sign-ins,
+      Prowler findings on the same incident and case workflow
+- [ ] **Compliance evidence** — incidents, approvals and audit mapped to
+      SOC 2 / ISO 27001 / PCI DSS controls (same item as in Phase 10)
+- [ ] **Threat hunting** — natural-language hunts over stored events, with the
+      generated query shown (same item as in Phase 7)
+- [ ] **Incident response and forensics** — timeline reconstruction and
+      post-incident reports across domains (builds on the Phase 7 reports)
+
+### Guardrails for this phase
+
+- **Agents propose; people approve.** No role gets a path to change the world
+  except a pending action in the existing approval flow. Fully autonomous
+  execution needs its own spec, an eval gate and an explicit trusted-playbook
+  concept.
+- **Inputs are hostile.** Logs, scanner output and ticket text steer a
+  tool-calling model. Safety comes from scopes, budgets and the approval gate,
+  not from the prompt.
+- **Integrate, don't rebuild.** The *Deliberately not building* list below still
+  applies: ingest other tools' output rather than shipping our own EDR,
+  scanner or log search engine.
+- **One domain pack at a time.** Each needs credibility with a different
+  audience; three shallow packs lose to one good one.
 
 ---
 
