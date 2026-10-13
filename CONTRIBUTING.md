@@ -18,8 +18,8 @@ how to get a working setup, what a good change looks like, and how to send it.
 You need Go 1.25+, Node.js 22+ and Docker.
 
 ```bash
-git clone https://github.com/chanchalvdev/go-siem-agent-llm-classifier.git
-cd go-siem-agent-llm-classifier
+git clone https://github.com/chanchalvdev/casewright.git
+cd casewright
 make hooks          # git hooks: gofmt/oxlint, Conventional Commits, branch names
 make setup          # .env from the template, Go + npm dependencies
 make docker-up      # Postgres, Qdrant, Ollama

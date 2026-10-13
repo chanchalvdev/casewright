@@ -1,6 +1,6 @@
 # Architecture: from log line to resolved incident
 
-SIEMAgent is one Go service (API, detection, correlation, AI agent, response)
+Casewright is one Go service (API, detection, correlation, AI agent, response)
 with a React dashboard, backed by PostgreSQL, Qdrant and an LLM. This page
 follows a log line through the whole platform.
 
@@ -16,7 +16,7 @@ flowchart LR
         SYS[syslog UDP/TCP :5514]
         API[HTTP: /api/classify, /api/ingest, dashboard upload]
     end
-    subgraph SIEMAgent["SIEMAgent (Go, :8080)"]
+    subgraph Casewright["Casewright (Go, :8080)"]
         AUTH[Auth: API key / session / roles]
         PARSE[parser]
         DET[detection: Sigma + threshold rules]

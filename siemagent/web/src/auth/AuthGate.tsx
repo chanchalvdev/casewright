@@ -71,7 +71,7 @@ function describe(err: unknown): { title: string; detail: string } {
     return { title: `The backend answered ${status}`, detail: 'Check the backend terminal for the error.' }
   }
   return {
-    title: 'Cannot reach the SIEMAgent backend',
+    title: 'Cannot reach the Casewright backend',
     detail:
       'The dashboard is up but the Go server on port 8080 is not answering. It may still be starting, or it stopped with an error: check the terminal running make dev (look for a line starting with "error:").',
   }
@@ -128,7 +128,7 @@ function LoginForm({ onSuccess }: { onSuccess: () => void }) {
             <Shield size={18} className="text-on-accent" aria-hidden="true" />
           </div>
           <div>
-            <h1 id="login-title" className="text-base font-semibold text-fg">Sign in to SIEMAgent</h1>
+            <h1 id="login-title" className="text-base font-semibold text-fg">Sign in to Casewright</h1>
             <p className="text-xs text-fg-subtle">AI security operations</p>
           </div>
         </div>

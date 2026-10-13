@@ -96,6 +96,11 @@ correlation engine, one case workflow, one audit trail.
    `incident.Alert`; one migration `0005_findings.sql` adds nullable columns).
    Vulnerability findings have no MITRE tactic: the kill-chain view must skip
    alerts with an empty `Tactic` rather than invent one.
+5. **Tenant seam:** every table this spec adds (`entities`, and the columns in
+   `0005_findings.sql`) carries `tenant_id TEXT NOT NULL DEFAULT 'default'`, and
+   unique keys include it, e.g. `(tenant_id, kind, value)`. Nothing reads it yet;
+   multi-tenancy (Phase 9) is built last, and this keeps it from becoming a
+   retrofit across every table.
 
 ### Ingestion
 - `POST /api/findings` — accepts one `Finding` or `{"findings":[...]}` (max
