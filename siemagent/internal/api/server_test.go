@@ -32,7 +32,7 @@ func (m *mockClassifier) ClassifyStream(_ context.Context, ev models.LogEvent, o
 	if onChunk != nil {
 		onChunk(`{"chunk":"test"}`)
 	}
-	return m.Classify(nil, ev) //nolint:staticcheck
+	return m.Classify(context.Background(), ev)
 }
 
 func (m *mockClassifier) Ping(_ context.Context) error { return nil }

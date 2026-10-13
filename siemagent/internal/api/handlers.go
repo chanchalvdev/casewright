@@ -13,8 +13,7 @@ import (
 	"github.com/chverma/siemagent/internal/pipeline"
 )
 
-// ── POST /api/ingest ─────────────────────────────────────────────────────────
-
+// handleIngest parses a batch of log lines and classifies them: POST /api/ingest.
 func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	var req models.IngestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -99,8 +98,7 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ── GET /api/search ───────────────────────────────────────────────────────────
-
+// handleSearch performs semantic similarity search: GET /api/search.
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	if s.search == nil || s.embed == nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
@@ -174,8 +172,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// ── GET /api/analytics/summary ───────────────────────────────────────────────
-
+// handleAnalyticsSummary returns aggregate event statistics: GET /api/analytics/summary.
 func (s *Server) handleAnalyticsSummary(w http.ResponseWriter, r *http.Request) {
 	summary, err := s.events.Summary(r.Context())
 	if err != nil {
@@ -186,8 +183,7 @@ func (s *Server) handleAnalyticsSummary(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, summary)
 }
 
-// ── GET /api/events ──────────────────────────────────────────────────────────
-
+// Pagination bounds for GET /api/events.
 const (
 	defaultEventsLimit = 100
 	maxEventsLimit     = 500

@@ -446,7 +446,7 @@ func (q qdrantSearchAdapter) Search(ctx context.Context, vec []float32, topK uin
 	return hits, nil
 }
 
-// buildRegistry assembles the Phase 3 tool registry. External-API tools read
+// buildRegistry assembles the agent tool registry. External-API tools read
 // their keys from env and degrade gracefully when a key is absent.
 func buildRegistry() *agent.Registry {
 	reg := agent.New()
@@ -468,7 +468,7 @@ type parseStats struct {
 func runCLI(args []string, cfg config.Config, cls classifier.Interface, out *os.File) {
 	p := parser.New()
 
-	// Phase 1: Parse all events first so we know the total
+	// Parse all events first so we know the total.
 	var events []models.LogEvent
 	stats := parseStats{}
 	for _, path := range args {
@@ -497,7 +497,7 @@ func runCLI(args []string, cfg config.Config, cls classifier.Interface, out *os.
 		return
 	}
 
-	// Phase 2: Classify with progress bar
+	// Classify with a progress bar.
 	pool := pipeline.NewWorkerPool(cfg.Workers, cls)
 	results := pool.Start(context.Background())
 
@@ -520,7 +520,7 @@ func runCLI(args []string, cfg config.Config, cls classifier.Interface, out *os.
 	pool.Close()
 	<-done
 
-	// Phase 3: Print summary table
+	// Print the summary table.
 	printSummaryTable(classified, out)
 }
 

@@ -46,8 +46,8 @@ type Interface interface {
 	Ping(ctx context.Context) error
 }
 
-// Indexer is implemented by the Qdrant store; kept as an interface so Phase 1
-// tests that don't wire Qdrant still compile and pass.
+// Indexer is implemented by the Qdrant store; kept as an interface so tests
+// that do not wire Qdrant still compile and pass.
 type Indexer interface {
 	Upsert(ctx context.Context, id string, vector []float32, payload map[string]any) error
 }
@@ -79,8 +79,8 @@ func (c *Classifier) WithIndexing(embedder VectorEmbedder, indexer Indexer) {
 	c.indexer = indexer
 }
 
-// OpenAIClient exposes the underlying LLM client so the Phase 3 agent can reuse
-// the same configured connection (DRY — one client, one endpoint).
+// OpenAIClient exposes the underlying LLM client so the agent can reuse
+// the same configured connection.
 func (c *Classifier) OpenAIClient() *openai.Client { return c.client }
 
 // Ping sends a minimal request to verify the LLM is reachable.
