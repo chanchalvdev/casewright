@@ -15,12 +15,12 @@ export interface ToolInvocation {
   result?: string
 }
 
-export type IncidentStatus = 'investigating' | 'complete' | 'failed'
+type StreamStatus = 'investigating' | 'complete' | 'failed'
 
 export interface Incident {
   id: string
   eventId: string
-  status: IncidentStatus
+  status: StreamStatus
   tools: ToolInvocation[]
   playbook: string
 }
