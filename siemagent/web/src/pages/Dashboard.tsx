@@ -160,8 +160,8 @@ export function Dashboard() {
               <Shield size={16} className="text-on-accent" />
             </div>
             <div>
-              <p className="font-semibold text-fg text-sm leading-tight">SIEMAgent</p>
-              <p className="text-[10px] text-fg-subtle leading-tight">AI Security Classifier</p>
+              <p className="font-semibold text-fg text-sm leading-tight">Casewright</p>
+              <p className="text-[10px] text-fg-subtle leading-tight">AI security analyst</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-fg-subtle hover:text-fg-muted">

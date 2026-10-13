@@ -6,6 +6,11 @@
 > it stops thinking of itself as "a SIEM agent."
 >
 > Written to be disagreed with. Every claim cites a file so it can be checked.
+>
+> **Outcome:** written before Phases 4–9, so several gaps below (no auth, in-memory
+> only, no rules tier, no correlation) have since been closed. The reframe it argues
+> for was adopted: the project is now **Casewright**, an AI security analyst that
+> works cases rather than a SIEM. See [ROADMAP.md](ROADMAP.md) Phase 11.
 
 ---
 

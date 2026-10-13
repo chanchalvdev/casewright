@@ -1,10 +1,24 @@
-# Go SIEM Agent — LLM Classifier
+# Casewright
 
-An open-source AI security operations platform built in Go. It ingests security logs, classifies and triages them with an LLM, maps them to MITRE ATT&CK, and investigates high-severity events with an autonomous agent — with a responsive React dashboard for semantic search and analytics.
+**Open-source, local-first AI security analyst: from alert to resolved case.**
 
-Where it is heading — detection rules, incident correlation, automated response and integrations — is in the **[roadmap](ROADMAP.md)**. Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
+Casewright takes the alerts and logs your existing tools produce, groups related
+alerts into one case per attack, investigates each case with a local or hosted
+LLM, and proposes a response that a person approves. Confirmed cases then
+become new detection rules, so the cheap rules tier keeps growing and fewer
+events need the LLM.
 
-[![CI](https://github.com/chanchalvdev/go-siem-agent-llm-classifier/actions/workflows/ci.yml/badge.svg)](https://github.com/chanchalvdev/go-siem-agent-llm-classifier/actions/workflows/ci.yml)
+It is not a SIEM. It has no log search engine of its own and is built to sit
+alongside Wazuh, Elastic or Security Onion, working the alerts they raise.
+
+**[Platform overview: vision, architecture, automation level of each task, MSSP roles](https://claude.ai/artifact/M9VgQStv22tGgc5rHpmV3i)** ·
+**[Roadmap](ROADMAP.md)** · **[Contributing](CONTRIBUTING.md)**
+
+> Casewright was previously called *Go SIEM Agent* (`siemagent`). The code still
+> lives in `siemagent/` and the binary, Go module, Docker images and database
+> keep the old name until a later code-rename release.
+
+[![CI](https://github.com/chanchalvdev/casewright/actions/workflows/ci.yml/badge.svg)](https://github.com/chanchalvdev/casewright/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
@@ -17,8 +31,8 @@ Where it is heading — detection rules, incident correlation, automated respons
 You need Docker. No API key, no setup:
 
 ```bash
-git clone https://github.com/chanchalvdev/go-siem-agent-llm-classifier.git
-cd go-siem-agent-llm-classifier
+git clone https://github.com/chanchalvdev/casewright.git
+cd casewright
 make demo        # or: docker compose -f siemagent/demo/compose.yml up -d --build --wait
 ```
 
@@ -105,7 +119,7 @@ Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Ev
  syslog / HTTP / upload
           │
           ▼
- ┌──────────────────────────────── SIEMAgent (Go :8080) ─────────────────────────────────┐
+ ┌──────────────────────────────── Casewright (Go :8080) ────────────────────────────────┐
  │ auth (API key · session · roles · CSRF · audit)                                        │
  │   → parse (RFC 5424 / 3164 / JSON)                                                     │
  │   → detect (Sigma + threshold rules; a match skips the LLM)                            │
@@ -131,7 +145,7 @@ prepared attack scenario, follow **[docs/TESTING.md](docs/TESTING.md)**.
 ## Project Structure
 
 ```
-go-siem-agent-llm-classifier/
+casewright/
 ├── siemagent/
 │   ├── cmd/siemagent/        # Main entrypoint (CLI + HTTP server)
 │   ├── internal/
@@ -190,8 +204,8 @@ go-siem-agent-llm-classifier/
 ### 1. Clone
 
 ```bash
-git clone https://github.com/chanchalvdev/go-siem-agent-llm-classifier.git
-cd go-siem-agent-llm-classifier/siemagent
+git clone https://github.com/chanchalvdev/casewright.git
+cd casewright/siemagent
 ```
 
 ### 2. Configure environment
@@ -257,7 +271,7 @@ Server starts at `http://localhost:8080`. You should see:
 INFO  LLM provider configured  provider=gemini model=gemini-3.8-flash
 INFO  Qdrant connected, semantic search enabled
 INFO  events persisted to Postgres
-INFO  SIEMAgent HTTP server starting  addr=:8080
+INFO  Casewright HTTP server starting  addr=:8080
 ```
 
 ### 8. Start the frontend
@@ -576,7 +590,7 @@ docker compose --profile app up -d --build
 
 Released images are published to GHCR as `ghcr.io/chanchalvdev/siemagent-api`
 and `ghcr.io/chanchalvdev/siemagent-web`, with binaries for Linux and macOS on
-the [releases page](https://github.com/chanchalvdev/go-siem-agent-llm-classifier/releases).
+the [releases page](https://github.com/chanchalvdev/casewright/releases).
 How branches, pull requests and releases work is described in
 [docs/BRANCHING.md](docs/BRANCHING.md).
 

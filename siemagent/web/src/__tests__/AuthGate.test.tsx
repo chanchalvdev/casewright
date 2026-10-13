@@ -47,7 +47,7 @@ describe('AuthGate', () => {
     api.login.mockResolvedValue(undefined)
     renderWithQuery(<AuthGate><Who /></AuthGate>)
 
-    expect(await screen.findByRole('heading', { name: 'Sign in to SIEMAgent' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Sign in to Casewright' })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'ana' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct horse battery' } })
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
@@ -72,7 +72,7 @@ describe('AuthGate', () => {
     renderWithQuery(<AuthGate><Who /></AuthGate>)
     await screen.findByText('signed in as ana')
     window.dispatchEvent(new Event('siem:session-expired'))
-    expect(await screen.findByRole('heading', { name: 'Sign in to SIEMAgent' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Sign in to Casewright' })).toBeInTheDocument()
   })
 
   it('signs out', async () => {
@@ -80,7 +80,7 @@ describe('AuthGate', () => {
     renderWithQuery(<AuthGate><Who /></AuthGate>)
     fireEvent.click(await screen.findByRole('button', { name: 'out' }))
     await waitFor(() => expect(api.logout).toHaveBeenCalled())
-    expect(await screen.findByRole('heading', { name: 'Sign in to SIEMAgent' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Sign in to Casewright' })).toBeInTheDocument()
   })
 })
 
@@ -94,7 +94,7 @@ describe('AuthGate when the backend is down', () => {
   it('explains instead of showing the login, and recovers on retry', async () => {
     api.getMe.mockRejectedValueOnce(serverError(502)).mockResolvedValue(ana)
     renderWithQuery(<AuthGate><Who /></AuthGate>)
-    expect(await screen.findByRole('heading', { name: 'Cannot reach the SIEMAgent backend' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Cannot reach the Casewright backend' })).toBeInTheDocument()
     expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Retry now' }))
     expect(await screen.findByText('signed in as ana')).toBeInTheDocument()

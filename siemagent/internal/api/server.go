@@ -247,7 +247,7 @@ func (s *Server) buildRouter() *chi.Mux {
 func (s *Server) HTTPServer() *http.Server { return s.http }
 
 func (s *Server) Start() error {
-	slog.Info("SIEMAgent HTTP server starting",
+	slog.Info("Casewright HTTP server starting",
 		"component", "api",
 		"addr", s.http.Addr,
 	)

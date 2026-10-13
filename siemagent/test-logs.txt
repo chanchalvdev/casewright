@@ -1,4 +1,4 @@
-# SIEM Agent Test Log File — Mixed severity events
+# Casewright Test Log File — Mixed severity events
 # Upload this file via the UI to classify all events at once
 
 # === SSH Brute Force ===

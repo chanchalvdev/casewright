@@ -1,4 +1,7 @@
-# SIEMAgent — Complete Development Playbook
+# Casewright — Complete Development Playbook
+
+> Written when the project was called SIEMAgent; the prompts below keep that name
+> as a record of how it was built. The product is now Casewright.
 
 Step-by-step feature prompts for every phase.  
 Each prompt is ready to paste directly into Claude or your AI coding tool.

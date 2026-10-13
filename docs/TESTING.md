@@ -1,4 +1,4 @@
-# Testing SIEMAgent
+# Testing Casewright
 
 Two kinds of testing: **automated** (what CI runs) and a **hands-on
 walkthrough** that exercises every feature with a prepared attack scenario.
@@ -50,7 +50,7 @@ To see response actions really execute, point the containment webhook at
 anything that accepts a POST, for example a throwaway listener:
 
 ```bash
-# terminal 1: prints every action SIEMAgent sends
+# terminal 1: prints every action Casewright sends
 python3 -c "
 from http.server import BaseHTTPRequestHandler, HTTPServer
 class H(BaseHTTPRequestHandler):
@@ -72,7 +72,7 @@ make docker-up
 make dev        # backend :8080 + dashboard :5173
 ```
 
-Wait for `SIEMAgent HTTP server starting` in the terminal and open
+Wait for `Casewright HTTP server starting` in the terminal and open
 http://localhost:5173. If the dashboard says it cannot reach the backend,
 read the terminal for a line starting with `error:` (a short
 `SIEM_ADMIN_PASSWORD` is the usual one).

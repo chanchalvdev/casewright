@@ -1,4 +1,4 @@
-# SIEM Agent — Server Startup Guide
+# Casewright — Server Startup Guide
 
 ## Prerequisites
 
