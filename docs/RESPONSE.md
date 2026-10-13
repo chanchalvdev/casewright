@@ -90,7 +90,7 @@ actions:
 
 ## Connecting your tools
 
-SIEMAgent doesn't ship firewall, IdP or EDR integrations of its own. Approved
+Casewright doesn't ship firewall, IdP or EDR integrations of its own. Approved
 containment actions are POSTed as JSON to `RESPONSE_WEBHOOK_URL`, and your
 automation does the work: an n8n, Tines or Shuffle workflow, an Ansible AWX
 job template, a cloud function calling your firewall or Okta or Entra ID, and

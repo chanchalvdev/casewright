@@ -47,7 +47,7 @@ DEMO := docker compose -f $(APP)/demo/compose.yml
 demo:
 	$(DEMO) up -d --build --wait
 	@echo ""
-	@echo "SIEMAgent demo: http://localhost:3000  (sign in as admin / siemagent-demo)"
+	@echo "Casewright demo: http://localhost:3000  (sign in as admin / siemagent-demo)"
 	@echo "API docs:       http://localhost:8080/docs"
 	@echo "Actions sent:   $(DEMO) logs -f webhook"
 	@echo "Stop:           make demo-down   (add -v to the command to wipe data)"

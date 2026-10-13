@@ -56,7 +56,7 @@ Good free feeds to start with:
 | Tor Project | `https://check.torproject.org/torbulkexitlist` | Tor exit nodes |
 
 Check each feed's terms before using it commercially. Feeds are downloaded
-from the SIEMAgent server, so it needs outbound HTTPS to them. A failed download
+from the Casewright server, so it needs outbound HTTPS to them. A failed download
 keeps the previous indicators in use and shows the error on the list.
 
 ## Dashboard

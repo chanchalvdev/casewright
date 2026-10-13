@@ -1,4 +1,4 @@
-# SIEMAgent — Phase 3 Specs (Agentic Incident Responder)
+# Casewright — Phase 3 Specs (Agentic Incident Responder)
 
 Phases 1 (Core Classifier) and 2 (RAG Pipeline) are **complete**. Phase 3 adds an
 autonomous tool-use agent that enriches high-severity events with threat intel,
