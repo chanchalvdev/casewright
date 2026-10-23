@@ -32,7 +32,7 @@ jobs:
         run: go vet ./... && go vet -tags integration ./...
       - uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.5.0
+          version: v2.14.0
           working-directory: siemagent
           args: --build-tags integration
       - name: go test
