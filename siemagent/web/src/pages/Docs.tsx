@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { SeverityBadge } from '../components/SeverityBadge'
 import type { Severity } from '../styles/tokens'
+import { BrandMark } from '../components/BrandMark'
 
 // Docs is the in-app user guide. It is intentionally self-contained (no data
 // fetching) so it renders instantly and works offline.
@@ -114,9 +115,7 @@ export function Docs() {
           {/* Hero */}
           <header className="border-b border-line pb-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
-                <Shield size={18} className="text-on-accent" />
-              </div>
+              <BrandMark size={36} />
               <div>
                 <h1 className="text-xl font-bold text-fg">Casewright User Guide</h1>
                 <p className="text-xs text-fg-subtle">AI-powered security log classification & incident response</p>
