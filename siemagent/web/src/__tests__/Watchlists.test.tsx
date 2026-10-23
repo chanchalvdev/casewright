@@ -123,6 +123,9 @@ describe('Watchlists page', () => {
     render('viewer')
     fireEvent.change(await screen.findByLabelText('IP, domain, hash or URL'), { target: { value: '198.51.100.7' } })
     fireEvent.click(screen.getByRole('button', { name: 'Check' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('Listed on Case 42 C2 (P1, via 198.51.100.0/24)')
+    // The watchlist table's loading indicator is also a status region.
+    await waitFor(() =>
+      expect(screen.getAllByRole('status').map((s) => s.textContent)).toContain('Listed on Case 42 C2 (P1, via 198.51.100.0/24)'),
+    )
   })
 })
