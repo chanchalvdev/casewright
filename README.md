@@ -20,7 +20,7 @@ alongside Wazuh, Elastic or Security Onion, working the alerts they raise.
 
 [![CI](https://github.com/chanchalvdev/casewright/actions/workflows/ci.yml/badge.svg)](https://github.com/chanchalvdev/casewright/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go)
+![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
 ![Tailwind](https://img.shields.io/badge/Tailwind-CSS-38BDF8?logo=tailwindcss)
 
@@ -101,7 +101,7 @@ Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Ev
 
 | Layer | Technology |
 |---|---|
-| Backend | Go 1.25, Chi router |
+| Backend | Go 1.26, Chi router |
 | LLM Provider | Gemini (default), Ollama (local), or any OpenAI-compatible API |
 | LLM Model | `gemini-3.8-flash` / `llama3.2` (configurable) |
 | Vector DB | Qdrant (gRPC) |
@@ -196,7 +196,7 @@ casewright/
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Go | 1.25+ | Backend |
+| Go | 1.26+ | Backend |
 | Node.js | 18+ | Frontend |
 | Docker + Compose | Latest | Qdrant, Postgres, Ollama |
 | LLM | — | A Gemini API key, or Ollama for a fully local model |
