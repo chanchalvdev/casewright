@@ -97,7 +97,7 @@ Web:  tsc -b        →  oxlint              →  vitest run          →  vite 
 
 ### Go (siemagent/)
 - Module: `github.com/chverma/siemagent`  
-- Go 1.25 — use `min()` built-in (available since 1.21), not a hand-rolled helper
+- Go 1.26 — use `min()` built-in (available since 1.21), not a hand-rolled helper
 - Logging: `log/slog` (stdlib) — not zerolog, not logrus
 - HTTP: `go-chi/chi/v5`
 - LLM client: `sashabaranov/go-openai` (OpenAI-compatible — works with Kimchi/Ollama)
@@ -208,7 +208,7 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | MIT license; platform roadmap in ROADMAP.md | Open-source release as an AI SOC platform, rules-first then AI |
 | 2026-10 | Trunk-based flow: `<type>/<name>` branches, PR title = branch name, protected `master` | See docs/BRANCHING.md; enforced by the PR checks workflow and git hooks |
 | 2026-10 | Releases from semver tags: binaries + GHCR images with provenance/SBOM | Reproducible, verifiable artifacts; CI reused as the release gate |
-| 2026-10 | Go toolchain pinned to the latest 1.25 patch | `go 1.25.0` alone builds with an unpatched standard library |
+| 2026-10 | Go toolchain pinned to the latest patch (`toolchain` line in go.mod) | `go X.Y.0` alone builds with an unpatched standard library |
 | 2026-10 | Sigma engine in-house (`internal/detection`), rules-first by default | Rule matches skip the LLM; LLM outage falls back to rule verdicts; no heavy Sigma dependency |
 | 2026-10 | Built-in rules carry `samples` replayed by tests | Detection-as-code: every rule change is tested against real parser output |
 | 2026-10 | Threshold rules use arrival time, capped group state | Log timestamps are forgeable; attacker-chosen group keys must not grow memory unbounded |
@@ -223,3 +223,4 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | MTTD from the log time of the opening alert, only when within 24h; MTTA on first assign/status change | Replays and forged timestamps must not distort metrics; a comment is not taking ownership |
 | 2026-10 | Product renamed Casewright; brand and docs first, code identifiers (`siemagent` module, binary, images, DB) in a later PR | It works cases after a SIEM fires, it is not a SIEM; "Casefile" was taken by an open-source SOC tracker. Code rename waits so open PRs are not broken |
 | 2026-10 | Phase 9 (SSO, multi-tenancy) built last; new tables carry a `tenant_id` from 11-01 on | Tenancy is invasive and has no second tenant yet; the column now avoids a retrofit later |
+| 2026-10-23 | Go 1.26 (toolchain go1.26.10) | govulncheck: 10 stdlib CVEs fixed only in 1.26.9+, and the fixed golang.org/x/net v0.60.0 requires Go 1.26 |

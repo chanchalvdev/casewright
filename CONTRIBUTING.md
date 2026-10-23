@@ -15,7 +15,7 @@ how to get a working setup, what a good change looks like, and how to send it.
 
 ## Development setup
 
-You need Go 1.25+, Node.js 22+ and Docker.
+You need Go 1.26+, Node.js 22+ and Docker.
 
 ```bash
 git clone https://github.com/chanchalvdev/casewright.git
