@@ -289,7 +289,7 @@ Jan 15 10:34:00 workstation01 powershell[7890]: Invoke-Expression (New-Object Ne
 
 | Category | Technology | Version |
 |---|---|---|
-| Backend language | Go | 1.25 |
+| Backend language | Go | 1.26 |
 | HTTP router | Chi | 5.3 |
 | LLM client | go-openai (OpenAI-compat) | 1.41 |
 | Vector DB | Qdrant (gRPC) | 1.18 |
