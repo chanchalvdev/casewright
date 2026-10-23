@@ -5,6 +5,7 @@ import type { Suppression } from '../lib/api'
 import { timeAgo } from '../lib/time'
 import { useAuth } from '../auth/auth'
 import { SuppressionForm } from '../components/SuppressionForm'
+import { LoadingState } from '../components/Loading'
 
 function isActive(s: Suppression, now: number): boolean {
   return !s.expires_at || new Date(s.expires_at).getTime() > now
@@ -100,7 +101,7 @@ export function Suppressions() {
         )}
 
         {isLoading ? (
-          <p className="text-sm text-fg-subtle">Loading suppressions…</p>
+          <LoadingState label="Loading suppressions…" />
         ) : isError ? (
           <p className="text-sm text-danger">Could not load suppressions.</p>
         ) : data.length === 0 ? (
