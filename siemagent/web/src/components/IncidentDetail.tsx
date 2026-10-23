@@ -19,6 +19,7 @@ import { IncidentReport } from './IncidentReport'
 import { IncidentResponse } from './IncidentResponse'
 import { useAuth } from '../auth/auth'
 import { SuppressionForm } from './SuppressionForm'
+import { LoadingState } from './Loading'
 
 const RESOLUTION_LABELS: Record<Exclude<IncidentResolution, ''>, string> = {
   true_positive: 'True positive',
@@ -86,7 +87,7 @@ export function IncidentDetail({ id, onClose, onEntity }: Props) {
     onSuccess: () => { setComment(''); refresh() },
   })
 
-  if (isLoading) return <p className="p-6 text-sm text-fg-subtle">Loading incident…</p>
+  if (isLoading) return <LoadingState label="Loading incident…" className="p-6" />
   if (isError || !data) return <p className="p-6 text-sm text-danger">Could not load the incident.</p>
   const snoozable = data.entities.filter((e) => e.kind !== 'signature').map(entityLabel)
 

@@ -3,6 +3,7 @@ import { Archive } from 'lucide-react'
 import { getRetention } from '../lib/api'
 import type { RetentionStatus } from '../lib/api'
 import { timeAgo } from '../lib/time'
+import { LoadingState } from './Loading'
 
 function keep(days: number): string {
   if (days <= 0) return 'Forever'
@@ -31,7 +32,7 @@ export function RetentionPanel() {
         <Archive size={15} className="text-accent-text" aria-hidden="true" /> Data retention
       </h2>
       {!data ? (
-        <p className="mt-2 text-xs text-fg-subtle">Loading…</p>
+        <LoadingState compact className="mt-2" />
       ) : !data.active ? (
         <p className="mt-2 text-xs text-fg-muted">
           Data is kept in memory and cleared on restart. Set <code className="font-mono">POSTGRES_DSN</code> to keep it,

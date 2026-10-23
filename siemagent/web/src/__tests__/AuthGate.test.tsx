@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { AxiosError, AxiosHeaders } from 'axios'
 import type { Me } from '../lib/api'
+import type { ReactElement } from 'react'
 import { renderWithQuery } from '../test/render'
+import { ThemeProvider } from '../theme/ThemeProvider'
 
 function unauthorized() {
   const headers = new AxiosHeaders()
@@ -22,8 +24,13 @@ const api = vi.hoisted(() => ({
 }))
 vi.mock('../lib/api', () => api)
 
-const { AuthGate } = await import('../auth/AuthGate')
+const { AuthGate: Gate } = await import('../auth/AuthGate')
 const { useAuth } = await import('../auth/auth')
+
+// The login page carries a theme toggle, as App provides a ThemeProvider.
+function AuthGate({ children }: { children: ReactElement }) {
+  return <ThemeProvider><Gate>{children}</Gate></ThemeProvider>
+}
 
 function Who() {
   const { me, can, signOut } = useAuth()
@@ -65,6 +72,23 @@ describe('AuthGate', () => {
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'nope' } })
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('invalid username or password')
+  })
+
+  it('shows and hides the password', async () => {
+    api.getMe.mockRejectedValue(unauthorized())
+    renderWithQuery(<AuthGate><Who /></AuthGate>)
+    const pw = await screen.findByLabelText('Password')
+    expect(pw).toHaveAttribute('type', 'password')
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }))
+    expect(pw).toHaveAttribute('type', 'text')
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }))
+    expect(pw).toHaveAttribute('type', 'password')
+  })
+
+  it('shows a splash while checking the session', async () => {
+    api.getMe.mockReturnValue(new Promise(() => {}))
+    renderWithQuery(<AuthGate><Who /></AuthGate>)
+    expect(screen.getByRole('status')).toHaveTextContent('Checking your session…')
   })
 
   it('goes back to the login when the session expires', async () => {
