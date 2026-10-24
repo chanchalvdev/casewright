@@ -105,10 +105,8 @@ Every way in (syslog, HTTP API, CLI) goes through the same path:
 | **Respond** | Playbooks propose actions; approved actions go to one containment webhook or Slack. | Humans approve, and Casewright plugs into existing automation instead of shipping connectors. |
 | **Search** | Events are embedded with `nomic-embed-text` and stored in Qdrant. | Analysts and the agent can recall similar past events by meaning, not keywords. |
 
-The static diagram is [`docs/assets/architecture.png`](docs/assets/architecture.png).
-Download [`docs/assets/architecture.html`](docs/assets/architecture.html) for the
-interactive version, where every component links to the source lines it
-describes. The step-by-step write-up is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+A static, full-resolution version is in [`docs/assets/architecture.png`](docs/assets/architecture.png),
+and the step-by-step write-up is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Features
 
