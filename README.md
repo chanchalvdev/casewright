@@ -1,666 +1,244 @@
+<div align="center">
+
+<img src="docs/assets/logo.svg" width="72" height="72" alt="Casewright logo">
+
 # Casewright
 
-**Open-source, local-first AI security analyst: from alert to resolved case.**
-
-Casewright takes the alerts and logs your existing tools produce, groups related
-alerts into one case per attack, investigates each case with a local or hosted
-LLM, and proposes a response that a person approves. Confirmed cases then
-become new detection rules, so the cheap rules tier keeps growing and fewer
-events need the LLM.
-
-It is not a SIEM. It has no log search engine of its own and is built to sit
-alongside Wazuh, Elastic or Security Onion, working the alerts they raise.
-
-**[Platform overview: vision, architecture, automation level of each task, MSSP roles](https://claude.ai/artifact/M9VgQStv22tGgc5rHpmV3i)** ·
-**[Roadmap](ROADMAP.md)** · **[Contributing](CONTRIBUTING.md)**
-
-> Casewright was previously called *Go SIEM Agent* (`siemagent`). Upgrading from
-> it: the folder, binary, images and database are now `casewright`, and the
-> `SIEM_*` settings are `CASEWRIGHT_*` (the old names still work, with a warning).
+**Open-source, local-first AI security analyst. Alerts in, resolved cases out.**
 
 [![CI](https://github.com/chanchalvdev/casewright/actions/workflows/ci.yml/badge.svg)](https://github.com/chanchalvdev/casewright/actions/workflows/ci.yml)
-![License](https://img.shields.io/badge/license-MIT-blue)
-![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)
-![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
-![Tailwind](https://img.shields.io/badge/Tailwind-CSS-38BDF8?logo=tailwindcss)
+[![Security](https://github.com/chanchalvdev/casewright/actions/workflows/security.yml/badge.svg)](https://github.com/chanchalvdev/casewright/actions/workflows/security.yml)
+[![Release](https://img.shields.io/github/v/release/chanchalvdev/casewright?sort=semver)](https://github.com/chanchalvdev/casewright/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 
----
+[Quick start](#quick-start) · [Architecture](#architecture) · [Features](#features) · [Docs](#documentation) · [Roadmap](ROADMAP.md)
 
-## Try it in one command
+<img src="docs/assets/screenshots/incident.jpg" alt="An SSH brute-force incident in Casewright: kill chain, proposed IP block awaiting approval, entities and timeline" width="100%">
 
-You need Docker. No API key, no setup:
+</div>
+
+## The problem
+
+Security teams drown in alerts. A SIEM such as Wazuh or Elastic fires on every
+failed login, port scan and suspicious process, and an analyst has to turn each
+one into an answer by hand: is this real, is it part of something bigger, and
+what do we do about it?
+
+Putting an LLM on every alert does not fix this. It is slow and expensive at
+log volume, it hallucinates on routine events, it sends sensitive logs to a
+third party, and it should never get to block an IP or disable an account on
+its own.
+
+## What Casewright does
+
+Casewright sits **after** your SIEM and does the analyst's first pass, with the
+cheapest tool that can answer each step:
+
+1. **Rules first.** A built-in Sigma engine matches known attacks
+   in-process. A rule hit skips the LLM entirely, so routine alerts cost nothing.
+2. **AI for the rest.** Anything no rule recognises is classified by an LLM
+   (Gemini, OpenAI-compatible, or a fully local model through Ollama) with
+   severity, MITRE ATT&CK mapping and IOCs.
+3. **One case per attack.** Alerts that share an IP, user or host are correlated
+   into a single incident with a kill chain, so a 500-line brute force is one
+   case, not 500 tickets.
+4. **One investigation per case.** When an incident becomes P1/P2, an AI agent
+   investigates the whole story with threat-intel tools (AbuseIPDB, OTX, MITRE,
+   similar past events) and writes a cited report.
+5. **Humans approve the response.** Playbooks propose blocking an IP, disabling a
+   user or isolating a host. Nothing runs until an analyst approves it, and
+   every decision is audited.
+
+Run it with Ollama and **no log ever leaves your machine**.
+
+## Quick start
+
+You need Docker. No API key, no configuration:
 
 ```bash
 git clone https://github.com/chanchalvdev/casewright.git
 cd casewright
-make demo        # or: docker compose -f casewright/demo/compose.yml up -d --build --wait
+make demo
 ```
 
-Open **http://localhost:3000** and sign in as `admin` / `casewright-demo`. A
-prepared attack (SSH brute force → root shell, a port scan, ransomware deleting
-shadow copies) is replayed on first start, so there are already three incidents,
-a kill chain and response actions waiting for approval. Approve the IP block and
-watch it arrive at the stand-in firewall: `docker compose -f casewright/demo/compose.yml logs webhook`.
+Open **http://localhost:3000** and sign in as `admin` / `casewright-demo`.
 
-The demo runs **rules-only** (`LLM_PROVIDER=none`). For AI classification and
-investigations, start it with a key: `LLM_PROVIDER=gemini GEMINI_API_KEY=... make demo`.
-Stop with `make demo-down`. Demo only: fixed password, no TLS.
+A prepared attack is replayed on first start (SSH brute force → root shell, a
+port scan, ransomware deleting shadow copies), so three incidents, a kill chain
+and response actions awaiting approval are already there. Approve the IP block
+and watch it reach the stand-in firewall:
 
----
+```bash
+docker compose -f casewright/demo/compose.yml logs -f webhook
+```
 
-## What It Does
+The demo runs rules-only (`LLM_PROVIDER=none`). Add AI classification and
+investigations with `LLM_PROVIDER=gemini GEMINI_API_KEY=... make demo`, and stop
+everything with `make demo-down`. The demo uses a fixed password and no TLS, so
+keep it local.
 
-Send logs over syslog, paste or upload them (syslog, nginx, auth.log, Windows Event, etc.) and the agent:
+## Screenshots
 
-1. **Parses** the raw log into structured fields (host, app, timestamp, message)
-2. **Detects** known attacks with Sigma rules — instantly, with no LLM call
-3. **Classifies** everything else via LLM — attack type, severity (P1–P5), confidence score
-3. **Maps** to MITRE ATT&CK tactic + technique (e.g. T1110 Brute Force)
-4. **Extracts IOCs** — IPs, domains, file hashes with VirusTotal / AbuseIPDB links
-5. **Generates remediation** steps tailored to the specific threat
-6. **Stores** a vector embedding in Qdrant for semantic similarity search
-7. **Investigates** high-severity events with an autonomous LLM agent that calls threat-intel tools (MITRE, AbuseIPDB, OTX, similar-event recall)
-8. **Streams** live incidents to the dashboard over WebSocket — global alert ticker + incident detail overlay
-9. **Persists** every classified event to PostgreSQL so history survives restarts
-10. **Displays** everything in a real-time responsive dashboard
+| Sign in | Events |
+|---|---|
+| <img src="docs/assets/screenshots/login.jpg" alt="Sign-in page"> | <img src="docs/assets/screenshots/events.jpg" alt="Event stream with severity, MITRE tags and analytics"> |
+| **Incident with kill chain** | **Response approvals** |
+| <img src="docs/assets/screenshots/incident.jpg" alt="Incident detail"> | <img src="docs/assets/screenshots/response.jpg" alt="Playbook actions awaiting approval"> |
 
----
+## Architecture
+
+<img src="docs/assets/architecture-flow.gif" alt="Animated end-to-end flow: log sources to syslog listener, worker pool, rules-first detection, record(), incident correlation, response playbooks, AI investigation and WebSocket push back to the dashboard" width="100%">
+
+Every way in (syslog, HTTP API, CLI) goes through the same path:
+
+| Step | What happens | Why it is built this way |
+|---|---|---|
+| **Ingest** | Syslog UDP/TCP lines go into a bounded worker pool. | When the pool is full, lines are dropped and counted. A slow LLM must never stall the senders. |
+| **Detect** | Sigma and threshold rules run before anything else. | A rule hit skips the LLM. If the LLM is down, a matching rule still produces the alert. |
+| **Classify** | Unmatched events go to an OpenAI-compatible LLM with structured JSON output. | One client works for Gemini, OpenAI and local Ollama. Prompts are versioned and scored by evals. |
+| **Record** | IOC watchlist enrichment, suppressions, then storage in Postgres. | Suppressed events are stored but open nothing, so the record stays complete for hunting. |
+| **Correlate** | Events sharing an IP, user or host within a window join one incident. | One story per attack, and one AI investigation per incident instead of one per alert. |
+| **Investigate** | A tool-calling agent writes a cited report, streamed live over WebSocket. | Bounded concurrency: a busy agent skips and counts rather than queueing without limit. |
+| **Respond** | Playbooks propose actions; approved actions go to one containment webhook or Slack. | Humans approve, and Casewright plugs into existing automation instead of shipping connectors. |
+| **Search** | Events are embedded with `nomic-embed-text` and stored in Qdrant. | Analysts and the agent can recall similar past events by meaning, not keywords. |
+
+The static diagram is [`docs/assets/architecture.png`](docs/assets/architecture.png).
+Download [`docs/assets/architecture.html`](docs/assets/architecture.html) for the
+interactive version, where every component links to the source lines it
+describes. The step-by-step write-up is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Features
 
 **Detect**
-- **Sigma detection rules**: a built-in rule pack plus any Sigma rules you add (e.g. SigmaHQ); rule matches skip the LLM, cutting cost and latency ([docs/DETECTION.md](docs/DETECTION.md))
-- **Field normalisation**: every event gets common fields (`source.ip`, `user.name`, `event.outcome`, …) so one rule works across sources ([docs/FIELDS.md](docs/FIELDS.md))
-- **Threshold rules**: `count() by src_ip >= 10` over a time window catches brute force, password spraying, web scans and port scans
-- **Rule management**: enable or disable rules from the dashboard, with hit counts
-- **IOC watchlists**: known-bad IPs, ranges, domains and hashes from threat feeds, files or analysts raise matching events instantly ([docs/WATCHLISTS.md](docs/WATCHLISTS.md))
-- **AI classification**: Gemini, a fully local model via Ollama, or any OpenAI-compatible API, with structured JSON output
-- **MITRE ATT&CK mapping and severity triage**: tactic, technique and P1 Critical → P5 Info for every event
+- Sigma detection engine (built in, no heavy dependency) with 16 built-in rules, plus any Sigma rules you add, such as SigmaHQ ([docs](docs/DETECTION.md))
+- Threshold rules such as `count() by src_ip >= 10` for brute force, password spraying and scans
+- Field normalisation (`source.ip`, `user.name`, `event.outcome`, …) so one rule works across log sources ([docs](docs/FIELDS.md))
+- IOC watchlists from threat feeds, files or analysts, matched in constant time on every event ([docs](docs/WATCHLISTS.md))
+- AI classification with severity P1–P5, MITRE ATT&CK tactic and technique, IOCs and remediation
 
 **Investigate**
-- **Incidents and case management**: related alerts grouped by IP, user or host, with status, assignee, resolution, comments, a kill-chain view and a full timeline ([docs/INCIDENTS.md](docs/INCIDENTS.md))
-- **AI investigation of whole incidents**: tool-calling agent (AbuseIPDB, OTX, MITRE, similar events) writes a cited report, once per P1/P2 incident or on demand; analysts rate it
-- **Incident reports**: self-contained Markdown export
-- **SOC metrics**: MTTD, MTTA and MTTR (median, mean, p90), alert and incident volume, false-positive rate, backlog ageing and analyst workload
-- **Suppressions**: snooze a noisy IP, user, host, rule or attack type for a while; matching events are kept but open no incident
-- **Semantic search**: vector embeddings via Ollama + Qdrant to find similar past events
-- **Live stream**: `/ws/alerts` WebSocket shows investigations as they run
+- Incidents with status, assignee, resolution, comments, kill chain and full timeline ([docs](docs/INCIDENTS.md))
+- AI investigation of whole incidents with AbuseIPDB, OTX, MITRE and similar-event tools; analysts rate each report
+- SOC metrics: MTTD, MTTA, MTTR (median, mean, p90), false-positive rate, backlog ageing, analyst workload
+- Semantic search over past events (Ollama embeddings + Qdrant)
+- Suppressions to snooze a noisy IP, user, host, rule or attack type; Markdown incident reports
 
 **Respond**
-- **Response playbooks**: YAML playbooks propose block IP, disable user, isolate host, notify or webhook actions; analysts approve or reject; dry-run mode; audited ([docs/RESPONSE.md](docs/RESPONSE.md))
+- YAML playbooks propose block IP, disable user, isolate host, notify or webhook actions, with approval, dry-run and audit ([docs](docs/RESPONSE.md))
 
 **Operate**
-- **Users, roles and audit log**: viewer / analyst / admin, bcrypt passwords, sessions, lockout, every change audited ([docs/USERS.md](docs/USERS.md)); API keys for machines
-- **Syslog ingestion**: UDP/TCP listener with back-pressure and drop metrics; batch upload of `.log` files
-- **Durable storage**: PostgreSQL, with an in-memory fallback for quick local runs
-- **Prometheus metrics** at `/metrics`, **Swagger UI** at `/docs`
-- **Dashboard**: responsive, light and dark themes meeting WCAG AA contrast
+- Users with viewer, analyst and admin roles, bcrypt passwords, sessions, lockout and an audit log; API keys for machines ([docs](docs/USERS.md))
+- PostgreSQL with versioned, checksummed migrations, plus an in-memory mode for quick local runs
+- Prometheus metrics at `/metrics`, Swagger UI at `/docs`, health and readiness probes
+- Responsive dashboard with light and dark themes that meet WCAG AA contrast
 
----
+## Engineering highlights
 
-## Tech Stack
+- **Cost-aware AI.** Rules run first, and only events no rule explains reach the LLM. Every call saved is counted in a Prometheus metric.
+- **Measured, not eyeballed.** Prompt changes are scored on a 128-case hand-labelled eval set that includes adversarial log lines. Pull requests that touch the classifier must pass an accuracy threshold in CI; promoting prompt v2 doubled accuracy on a local 3B model and cut invalid output from 42% to 7% ([results](casewright/evals/RESULTS.md)).
+- **Back-pressure everywhere.** The syslog listener sheds load instead of blocking, investigations run in bounded slots, and threshold-rule state is capped so attacker-chosen keys cannot grow memory without bound.
+- **Secure by default.** bcrypt passwords, hashed session tokens, `SameSite=Strict` cookies with a CSRF header, constant-time API-key comparison, per-IP rate limits, and no trust in a client-supplied `X-Forwarded-For`.
+- **Tested.** 280 Go tests run with the race detector, Postgres and Qdrant integration tests run in CI, there are 25 Vitest suites and Playwright end-to-end tests, and the one-command demo is smoke-tested on every pull request.
+- **Supply chain.** CodeQL, govulncheck, npm audit and secret scanning run on every PR. Releases ship binaries and GHCR images with provenance and an SBOM.
+
+## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Backend | Go 1.26, Chi router |
-| LLM Provider | Gemini (default), Ollama (local), or any OpenAI-compatible API |
-| LLM Model | `gemini-3.8-flash` / `llama3.2` (configurable) |
-| Vector DB | Qdrant (gRPC) |
-| Embeddings | Ollama — `nomic-embed-text` (768-dim) |
-| Database | PostgreSQL 16 |
-| Metrics | Prometheus |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS, Recharts |
-| Infrastructure | Docker Compose |
+| Backend | Go 1.26, chi, `log/slog`, worker-pool pipeline |
+| AI | Gemini (default), Ollama (local) or any OpenAI-compatible API; tool-calling agent |
+| Storage | PostgreSQL 16, Qdrant (vectors), Ollama `nomic-embed-text` (768-dim embeddings) |
+| Frontend | React 19, TypeScript, Vite, TanStack Query, Tailwind CSS, Recharts |
+| Observability | Prometheus, OpenTelemetry traces (Langfuse-compatible) |
+| Delivery | Docker Compose, GitHub Actions, GHCR, Caddy on Oracle Cloud |
 
----
+## Local development
 
-## Architecture
-
-```
- syslog / HTTP / upload
-          │
-          ▼
- ┌──────────────────────────────── Casewright (Go :8080) ────────────────────────────────┐
- │ auth (API key · session · roles · CSRF · audit)                                        │
- │   → parse (RFC 5424 / 3164 / JSON)                                                     │
- │   → detect (Sigma + threshold rules; a match skips the LLM)                            │
- │   → classify (LLM: Gemini / Ollama / OpenAI-compatible; MITRE, severity, IOCs)          │
- │   → store (events)                                                                     │
- │   → correlate into incidents (shared IP / user / host within a window)                 │
- │       ├─ investigate (AI agent on the whole incident, once per P1/P2 incident)         │
- │       └─ respond (playbooks propose block IP / disable user / isolate host / notify;   │
- │                   an analyst approves → RESPONSE_WEBHOOK_URL / Slack)                  │
- └───────┬──────────────────────┬──────────────────────┬──────────────────────┬───────────┘
-         ▼                      ▼                      ▼                      ▼
-   PostgreSQL              Qdrant + Ollama           LLM               React dashboard :5173
-   events, incidents,      embeddings,                                 Events · Incidents · Response
-   actions, users, audit   similar events                              Analytics · Rules · Users · Audit
-```
-
-The full end-to-end flow, with diagrams, is in
-**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**. To try every feature with a
-prepared attack scenario, follow **[docs/TESTING.md](docs/TESTING.md)**.
-
----
-
-## Project Structure
-
-```
-casewright/
-├── casewright/
-│   ├── cmd/casewright/        # Main entrypoint (CLI + HTTP server)
-│   ├── internal/
-│   │   ├── agent/            # LLM tool-calling agent + tools (MITRE, AbuseIPDB, OTX, similar events)
-│   │   ├── api/              # HTTP handlers, router, auth/roles/CSRF/audit middleware, WS hub
-│   │   ├── auth/             # Users, roles, sessions, audit log
-│   │   ├── classifier/       # LLM-based event classifier
-│   │   ├── config/           # Environment config loader + provider selection
-│   │   ├── detection/        # Sigma + threshold rule engine, built-in rules (rules/*.yml)
-│   │   ├── incident/         # Alert correlation, case management, reports, AI briefs
-│   │   ├── metrics/          # Prometheus metrics
-│   │   ├── mitre/            # Offline MITRE ATT&CK subset
-│   │   ├── ingest/           # Syslog UDP/TCP listener
-│   │   ├── logsafe/          # Strips control characters from untrusted log fields
-│   │   ├── models/           # Shared data models
-│   │   ├── parser/           # Syslog & JSON log parsers
-│   │   ├── pipeline/         # Concurrent worker pool
-│   │   ├── response/         # Playbooks, proposed actions, approvals, webhook/Slack executor
-│   │   └── store/            # Event store and rule states: PostgreSQL + in-memory fallback
-│   ├── pkg/
-│   │   ├── ollama/           # Ollama embeddings client
-│   │   └── qdrant/           # Qdrant vector DB client + adapter
-│   ├── web/                  # React frontend
-│   │   ├── e2e/              # Playwright end-to-end tests
-│   │   └── src/
-│   │       ├── auth/         # Sign-in gate and role context
-│   │       ├── components/   # EventCard, IncidentDetail, KillChain, ActionCard, AlertTicker…
-│   │       ├── hooks/        # useAlertStream, useActionDecisions
-│   │       ├── lib/          # API client (fetch + SSE), shared labels
-│   │       ├── pages/        # Dashboard, Incidents, Response, Rules, Users, Audit, Docs, Search
-│   │       └── __tests__/    # Vitest + Testing Library unit tests
-│   ├── docker-compose.yml    # Qdrant + Postgres + Ollama
-│   ├── Makefile              # Dev commands
-│   ├── demo/attack-scenario.log  # Brute force, port scan and ransomware story (docs/TESTING.md)
-│   ├── sample.log            # Sample log file for CLI mode
-│   └── test-logs.txt         # 30-line test file for UI upload
-├── docs/                     # ARCHITECTURE, TESTING, DETECTION, INCIDENTS, RESPONSE, USERS, BRANCHING…
-├── specs/                    # Feature specs
-├── ROADMAP.md                # Platform roadmap
-└── README.md
-```
-
----
-
-## Quick Start
-
-### Prerequisites
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Go | 1.26+ | Backend |
-| Node.js | 18+ | Frontend |
-| Docker + Compose | Latest | Qdrant, Postgres, Ollama |
-| LLM | — | A Gemini API key, or Ollama for a fully local model |
-
-### 1. Clone
+Prerequisites: Go 1.26+, Node.js 22+, Docker. Optionally a [Gemini API key](https://aistudio.google.com/apikey); without one, use Ollama.
 
 ```bash
 git clone https://github.com/chanchalvdev/casewright.git
 cd casewright/casewright
+cp .env.example .env      # set GEMINI_API_KEY, or LLM_PROVIDER=ollama for fully local
+make setup                # Go modules + npm install
+make docker-up            # Postgres, Qdrant, Ollama
+make pull-models          # nomic-embed-text (+ llama3.2 for LLM_PROVIDER=ollama)
+make serve                # API on http://localhost:8080
+cd web && npm run dev     # dashboard on http://localhost:5173
 ```
 
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and choose an LLM — either a Gemini key:
-
-```env
-GEMINI_API_KEY=your_key_here
-```
-
-or a fully local model with no key (logs never leave your machine):
-
-```env
-LLM_PROVIDER=ollama
-OLLAMA_MODEL=llama3.2
-```
-
-> Get a Gemini key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). Any OpenAI-compatible provider also works — see `.env.example`.
-
-### 3. Install dependencies
-
-```bash
-make setup
-```
-
-### 4. Start Docker services
-
-```bash
-make docker-up
-```
-
-Starts Qdrant (vector DB), PostgreSQL, and Ollama in the background.
-
-> **Note:** If port 5432 is already in use locally, the Postgres container is mapped to `5433` by default.
-
-### 5. Pull Ollama embedding model
-
-```bash
-make pull-models
-```
-
-Downloads `nomic-embed-text` (~274 MB, required for semantic search) and `llama3.2` (used when `LLM_PROVIDER=ollama`).
-
-### 6. Build the backend
-
-```bash
-make build
-```
-
-### 7. Start the backend
-
-```bash
-make serve
-```
-
-Server starts at `http://localhost:8080`. You should see:
+From the repository root, `make quality-gate` runs exactly what CI runs:
 
 ```
-INFO  LLM provider configured  provider=gemini model=gemini-3.8-flash
-INFO  Qdrant connected, semantic search enabled
-INFO  events persisted to Postgres
-INFO  Casewright HTTP server starting  addr=:8080
+Go:   gofmt → go vet → golangci-lint → go test -race → go build
+Web:  tsc -b → oxlint → vitest run → vite build
 ```
 
-### 8. Start the frontend
+To run the whole stack in containers, use `cd casewright && docker compose --profile app up -d --build`.
+All settings are in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
-```bash
-cd web && npm run dev
-```
+## Releases and deployment
 
-Dashboard available at **http://localhost:5173**
+- **Releases** are cut from semver tags (`vX.Y.Z`) on `master`. Each release publishes Linux and macOS binaries plus the `ghcr.io/chanchalvdev/casewright-api` and `casewright-web` images, with provenance and an SBOM. See the [releases page](https://github.com/chanchalvdev/casewright/releases) and the [changelog](CHANGELOG.md).
+- **Deployment:** [`casewright/deploy/oci/`](casewright/deploy/oci/README.md) runs the stack on one Oracle Cloud Always Free VM. Only Caddy (HTTPS) is public, classification uses a local model, and a release deploys after approval, rolling back if the health check fails.
+- **Workflow:** trunk-based development with short-lived `<type>/<name>` branches, Conventional Commits and a protected `master` ([docs/BRANCHING.md](docs/BRANCHING.md)).
 
----
+## Documentation
 
-## Environment Variables
-
-| Variable | Description | Default |
-|---|---|---|
-| `LLM_PROVIDER` | `gemini`, `ollama`, `openai` (OpenAI-compatible) or `none` (rules only, no AI) | auto: `gemini` if `GEMINI_API_KEY` is set |
-| `GEMINI_API_KEY` | Gemini API key | — |
-| `GEMINI_MODEL` | Gemini model | `gemini-3.8-flash` |
-| `OLLAMA_MODEL` | Local chat model when `LLM_PROVIDER=ollama` | `llama3.2` |
-| `KIMCHI_API_KEY` / `OPENAI_API_KEY` | Key for an OpenAI-compatible endpoint | — |
-| `KIMCHI_BASE_URL` | OpenAI-compatible base URL | `https://api.kimchi.ai/v1` |
-| `CASEWRIGHT_MODEL` | Model for the OpenAI-compatible endpoint | `kimi-k2-5` |
-| `CASEWRIGHT_API_KEYS` | Comma-separated API keys for machine access (admin role) | — |
-| `CASEWRIGHT_ADMIN_USER` / `CASEWRIGHT_ADMIN_PASSWORD` | Creates the first dashboard admin when no user exists ([docs/USERS.md](docs/USERS.md)) | — |
-| `CASEWRIGHT_SESSION_TTL` / `CASEWRIGHT_COOKIE_SECURE` | Login lifetime; Secure cookie behind HTTPS | `12h` / `false` |
-| `INCIDENT_WINDOW` / `INCIDENT_MIN_SEVERITY` | Alert correlation window and threshold ([docs/INCIDENTS.md](docs/INCIDENTS.md)) | `1h` / `P3` |
-| `PLAYBOOKS_DIR` | Extra response playbooks ([docs/RESPONSE.md](docs/RESPONSE.md)) | — |
-| `RESPONSE_WEBHOOK_URL` / `SLACK_WEBHOOK_URL` | Where approved containment actions and notifications go | — |
-| `RETENTION_EVENTS_DAYS` / `RETENTION_INCIDENTS_DAYS` / `RETENTION_AUDIT_DAYS` | Days to keep events, resolved incidents and audit entries (Postgres only); `0` keeps forever | `0` |
-| `POSTGRES_DSN` | Postgres connection string; empty keeps events in memory | see `.env.example` |
-| `DETECTION_MODE` | `rules-first`, `enrich` or `off` ([docs/DETECTION.md](docs/DETECTION.md)) | `rules-first` |
-| `SIGMA_RULES_DIR` | Extra Sigma rules folder, searched recursively | — |
-| `SYSLOG_UDP_ADDR` / `SYSLOG_TCP_ADDR` | Syslog listener addresses, e.g. `:5514` | disabled |
-| `IOC_WATCHLIST_DIR` | Directory of read-only IOC list files ([docs/WATCHLISTS.md](docs/WATCHLISTS.md)) | — |
-| `SEED_LOG_FILE` | Log file replayed through the pipeline on first start, when no events are stored (demos) | — |
-| `CONDUCTOR_PORT` | HTTP server port | `8080` |
-| `ALLOWED_ORIGIN` | CORS origin | `http://localhost:5173` |
-| `QDRANT_ADDR` | Qdrant gRPC address | `localhost:6334` |
-| `OLLAMA_URL` | Ollama base URL (embeddings, local LLM) | `http://localhost:11434` |
-| `ABUSEIPDB_KEY` | AbuseIPDB API key for the agent's IP-reputation tool | optional |
-| `OTX_API_KEY` | AlienVault OTX API key for the agent's threat-intel tool | optional |
-
-Dashboard (in `casewright/web/.env.local`): `VITE_CASEWRIGHT_API_KEY` — the key the dashboard sends when `CASEWRIGHT_API_KEYS` is set.
-
----
-
-## Sending Logs over Syslog
-
-Enable the listener in `.env`:
-
-```env
-SYSLOG_UDP_ADDR=:5514
-SYSLOG_TCP_ADDR=:5514
-```
-
-Point rsyslog at it (`/etc/rsyslog.d/90-casewright.conf`):
-
-```
-*.* @casewright-host:5514      # UDP
-*.* @@casewright-host:5514     # TCP (newline-framed)
-```
-
-Or test by hand:
-
-```bash
-logger -n 127.0.0.1 -P 5514 -d "Failed password for root from 203.0.113.9 port 22 ssh2"
-```
-
-Each line is parsed (RFC 5424, RFC 3164 with or without `<PRI>` as written to `/var/log/auth.log`, or rsyslog's RFC 3339 "high-precision" format, falling back to raw text), queued and classified by the worker pool. When the queue is full, lines are dropped rather than slowing senders down; watch `ingest_dropped_total` in `/metrics`.
-
----
-
-## Authentication
-
-Three ways to authenticate (details in [docs/USERS.md](docs/USERS.md)):
-
-- **User accounts**: set `CASEWRIGHT_ADMIN_USER` and `CASEWRIGHT_ADMIN_PASSWORD` to create
-  the first admin, then sign in to the dashboard and add users as **viewer**,
-  **analyst** or **admin**. Sessions use an `HttpOnly`, `SameSite=Strict`
-  cookie; every change is written to the audit log.
-- **API keys** for scripts and integrations: set `CASEWRIGHT_API_KEYS`
-  (comma-separated, so keys can be rotated). A key acts as an admin:
-
-  ```bash
-  curl -H "Authorization: Bearer $KEY" http://localhost:8080/api/events
-  curl -H "X-API-Key: $KEY"            http://localhost:8080/api/events
-  ```
-
-  Browsers cannot set headers on a WebSocket handshake, so `/ws/alerts` also
-  accepts `?api_key=<key>` (plain HTTP requests do not).
-- **Open mode**: with neither configured, everything is allowed. For local
-  development only; the server warns at start.
-
-`/health`, `/health/ready`, `/docs` and `/api/auth/login` are always public.
-See [SECURITY.md](SECURITY.md) for deployment advice.
-
----
-
-## API Reference
-
-All examples assume auth is off; add `-H "X-API-Key: $KEY"` when `CASEWRIGHT_API_KEYS` is set.
-
-### `POST /api/classify`
-
-Classify a single log line.
-
-```bash
-curl -X POST http://localhost:8080/api/classify \
-  -H "Content-Type: application/json" \
-  -d '{"log": "Failed password for root from 192.168.1.100 port 22", "format": "auto"}'
-```
-
-**Response:**
-```json
-{
-  "event": { "raw": "...", "hostname": "webserver01", "source": "syslog" },
-  "attack_type": "Brute Force",
-  "severity": "P3",
-  "confidence": 0.90,
-  "mitre": { "tactic": "Credential Access", "technique_id": "T1110", "technique": "Brute Force" },
-  "iocs": ["192.168.1.100", "root"],
-  "summary": "Failed SSH login attempt for root from 192.168.1.100",
-  "remediation": "Block IP, enforce key-based auth, disable root login"
-}
-```
-
-### `POST /api/classify/stream`
-
-Same as `/classify` but streams LLM tokens via SSE.
-
-### `POST /api/ingest`
-
-Batch classify up to 500 log lines and store in Qdrant + Postgres.
-
-```bash
-curl -X POST http://localhost:8080/api/ingest \
-  -H "Content-Type: application/json" \
-  -d '{"logs": ["log line 1", "log line 2"], "format": "auto"}'
-```
-
-### `GET /api/events?limit=100`
-
-Most recent stored events, newest first (`limit` 1–500, default 100). With Postgres this includes history from before the last restart.
-
-### `GET /api/detections/rules`
-
-Loaded Sigma rules with level, tags, source, type (`single` or `threshold`),
-enabled state and match count since start.
-
-### `PATCH /api/detections/rules/{id}`
-
-Enable or disable a rule: `{"enabled": false}`. Saved in Postgres, so it
-survives restarts.
-
-### Incidents
-
-Related alerts are grouped into incidents with status, assignee, comments and
-history. See [docs/INCIDENTS.md](docs/INCIDENTS.md).
-
-- `GET /api/incidents?status=open&entity=ip:1.2.3.4`
-- `GET /api/incidents/stats`
-- `GET /api/soc/metrics?days=30`: MTTD/MTTA/MTTR, volume, workload ([docs/INCIDENTS.md](docs/INCIDENTS.md#soc-metrics))
-- `GET /api/incidents/{id}`
-- `PATCH /api/incidents/{id}` with `{"status","assignee","severity","resolution"}`
-- `POST /api/incidents/{id}/comments` with `{"body": "..."}`
-- `POST /api/incidents/{id}/investigate`: AI investigation of the whole incident
-- `GET /api/incidents/{id}/report`: Markdown incident report
-- `POST /api/incidents/{id}/feedback` with `{"helpful": true}`
-- `GET /api/watchlists` · `GET /api/ioc/lookup?value=`: IOC watchlists ([docs/WATCHLISTS.md](docs/WATCHLISTS.md))
-- `GET /api/suppressions` · `POST /api/suppressions` · `DELETE /api/suppressions/{id}`: snooze noisy alerts
-
-### Users and audit
-
-See [docs/USERS.md](docs/USERS.md): `POST /api/auth/login`, `GET /api/auth/me`,
-`/api/users` (admin) and `GET /api/audit` (admin).
-
-### Response playbooks
-
-Playbooks propose actions (block IP, disable user, isolate host, notify) that
-analysts approve. See [docs/RESPONSE.md](docs/RESPONSE.md).
-
-- `GET /api/playbooks`
-- `GET /api/response/actions?status=pending`
-- `POST /api/response/actions/{id}/approve` · `POST /api/response/actions/{id}/reject`
-- `POST /api/incidents/{id}/playbooks/{playbook}/run`
-
-### `GET /api/search?q=brute+force&limit=10`
-
-Semantic vector search over stored events.
-
-### `GET /api/analytics/summary`
-
-Returns attack type counts, severity distribution, 6h timeline, and MITRE tactic breakdown.
-
-### `GET /ws/alerts`
-
-WebSocket endpoint streaming live incident/agent events (JSON frames). Each frame
-is a sanitized `AgentEvent` — the UI reduces these into incident cards shown in the
-alert ticker and incident overlay.
-
-```bash
-websocat ws://localhost:8080/ws/alerts
-```
-
-### `GET /health`
-
-```json
-{"status": "ok"}
-```
-
-### `GET /health/ready`
-
-Checks the LLM, Postgres (when configured) and Qdrant; returns 503 if any is down.
-
-### `GET /docs`
-
-Interactive Swagger UI.
-
-### `GET /metrics`
-
-Prometheus metrics endpoint.
-
----
-
-## Using the Dashboard
-
-### Classify a log manually
-
-Paste any log line in the input bar and press **Enter** or click **Classify**:
-
-```
-Failed password for root from 45.33.32.156 port 22
-vssadmin.exe delete shadows /all /quiet
-GET /etc/passwd HTTP/1.1 200
-sudo: hacker USER=root COMMAND=/bin/bash
-```
-
-### Upload a log file
-
-Click **Upload** and select any `.log` or `.txt` file. The UI classifies all lines in parallel batches and shows a progress bar.
-
-A ready-made test file with 30 mixed-severity events is included:
-
-```
-casewright/test-logs.txt
-```
-
-### Severity filter
-
-Use the sidebar checkboxes to filter events by P1–P5. Event counts per severity are shown live.
-
-### Event detail
-
-Click any event card to open the detail panel showing:
-- Severity badge + confidence bar
-- MITRE ATT&CK tactic + technique (links to attack.mitre.org)
-- IOCs with VirusTotal / AbuseIPDB links
-- Remediation steps (collapsible)
-- Raw log
-- Similar past events (semantic search)
-
-### Analytics
-
-Switch to the **Analytics** tab (mobile) or view the right panel (desktop) for:
-- Critical / High event counters
-- Attack type bar chart (color-coded by severity)
-- Event rate timeline (6h, 10-min buckets)
-- MITRE ATT&CK tactic pie chart
-- MITRE heatmap and threat intel panel
-
-### Live incidents
-
-When the agent investigates a high-severity event, its progress streams in over
-`/ws/alerts` and appears in the **alert ticker** at the top of the app. Click a
-ticker entry to open the **incident overlay** — tool calls, findings, and the
-final verdict update live as the agent works.
-
----
-
-## CLI Mode
-
-Classify a log file directly from the terminal without starting the HTTP server:
-
-```bash
-./bin/casewright sample.log
-```
-
-Output results to JSON:
-
-```bash
-./bin/casewright --output results.json sample.log
-```
-
----
-
-## Development
-
-```bash
-make dev          # Go backend (air hot-reload) + Vite frontend in parallel
-make test         # Run all unit tests with race detector
-make vet          # go vet
-make lint         # golangci-lint
-make seed         # POST 10 sample syslog events to /classify
-make docker-down  # Stop all Docker services
-make clean        # Remove build artifacts
-```
-
-### Run everything in containers
-
-```bash
-cd casewright
-docker compose --profile app up -d --build
-# Dashboard: http://localhost:3000   API: http://localhost:8080
-```
-
-Released images are published to GHCR as `ghcr.io/chanchalvdev/casewright-api`
-and `ghcr.io/chanchalvdev/casewright-web`, with binaries for Linux and macOS on
-the [releases page](https://github.com/chanchalvdev/casewright/releases).
-How branches, pull requests and releases work is described in
-[docs/BRANCHING.md](docs/BRANCHING.md).
-
----
-
-## Responsive Design
-
-The dashboard is fully responsive:
-
-| Breakpoint | Layout |
+| Guide | What it covers |
 |---|---|
-| Mobile (< 768px) | Hamburger sidebar, tab bar (Events / Analytics), bottom-sheet event detail |
-| Tablet (768–1280px) | Collapsible sidebar, full event list, detail panel as overlay |
-| Desktop (> 1280px) | Three-column layout — sidebar + events + detail/analytics panel |
+| [Architecture](docs/ARCHITECTURE.md) | The flow from log line to resolved incident, component by component |
+| [Configuration](docs/CONFIGURATION.md) | Environment variables, syslog ingestion, authentication |
+| [API reference](docs/API.md) | Every HTTP and WebSocket endpoint, with examples |
+| [Using Casewright](docs/USAGE.md) | Dashboard walkthrough and CLI mode |
+| [Detection](docs/DETECTION.md) · [Fields](docs/FIELDS.md) · [Watchlists](docs/WATCHLISTS.md) | Sigma rules, field normalisation, IOC feeds |
+| [Incidents](docs/INCIDENTS.md) · [Response](docs/RESPONSE.md) · [Users](docs/USERS.md) | Case management, playbooks, roles and audit |
+| [Testing](docs/TESTING.md) · [Evals](casewright/evals/README.md) | Trying every feature, and scoring classifier changes |
 
----
+## Project structure
 
-## Running Tests
-
-```bash
-cd casewright
-make test                  # Go unit tests (with -race)
-make test-integration      # Integration tests (requires Qdrant running)
-
-# or, from the repository root, exactly what CI runs:
-make quality-gate
-
-cd web
-npx vitest run             # Frontend unit tests (Vitest + Testing Library)
-npx playwright test        # End-to-end tests (requires backend running)
+```
+casewright/
+├── casewright/                 Go service and dashboard
+│   ├── cmd/casewright/         entry point: HTTP server, CLI, migrations
+│   ├── internal/
+│   │   ├── api/                router, auth/CSRF/audit middleware, handlers, WebSocket hub
+│   │   ├── detection/          Sigma + threshold engine, built-in rules
+│   │   ├── classifier/         LLM classifier, versioned prompts
+│   │   ├── incident/           correlation, case management, reports
+│   │   ├── agent/              tool-calling investigation agent + tools
+│   │   ├── response/           playbooks, approvals, webhook/Slack executor
+│   │   ├── ingest/ · parser/   syslog listener, RFC 5424/3164/JSON parsing
+│   │   ├── ioc/ · suppression/ watchlists and snoozes
+│   │   ├── store/ · migrate/   Postgres stores and versioned migrations
+│   │   └── auth/ · metrics/ …  users and sessions, Prometheus
+│   ├── web/                    React dashboard (Vitest + Playwright)
+│   ├── evals/                  labelled dataset and thresholds for the classifier
+│   ├── demo/                   one-command demo with a scripted attack
+│   └── deploy/oci/             single-VM production deployment
+├── docs/                       guides, architecture diagram and screenshots
+└── .github/workflows/          CI, security scans, evals, releases
 ```
 
----
+## Roadmap
 
-## Classifier Evals
-
-Prompt and model changes are scored on a hand-labeled set of log lines,
-including adversarial ones, instead of judged by eye.
-
-```bash
-cd casewright
-make eval PROMPT=v1 SUBSET=smoke   # accuracy, per-label precision/recall, invalid-output rate, misses
-```
-
-- **Thresholds:** `casewright/evals/threshold.json`. Pull requests that touch
-  the classifier run the smoke subset with Ollama in CI and fail below it; the
-  full set runs nightly (`.github/workflows/eval.yml`).
-- **Add a test case:** one JSON line in `casewright/evals/dataset.jsonl`,
-  labeled by a person. Format and labeling rules: [`casewright/evals/README.md`](casewright/evals/README.md).
-- **Add a prompt version:** copy `internal/classifier/prompts/classifier_vN.txt`
-  to the next version, change one thing, run the eval. Production uses the
-  classifier's default version, so promoting a prompt is a reviewed change to
-  `DefaultPromptVersion` that the gate tests.
-- **Traces:** every LLM call is an OpenTelemetry span (`OTEL_EXPORTER_OTLP_ENDPOINT`,
-  or `LANGFUSE_*` keys). Eval runs are tagged `env=eval`, live traffic `env=live`.
-
-## Deploying
-
-[`casewright/deploy/oci/`](casewright/deploy/oci/README.md) runs the whole stack
-on one Oracle Cloud Always Free Ampere VM. Only Caddy (HTTPS) is public,
-classification uses a local Ollama model, and a release tag deploys after your
-approval, rolling back if the new version fails its health check.
-
----
+Detection, incidents, AI investigation, response and multi-user access are
+working today. Next up: more enrichment tools, native connectors, UEBA, and
+finally SSO and multi-tenancy. See [ROADMAP.md](ROADMAP.md).
 
 ## Contributing
 
-Bug reports, detection content, parsers and integrations are all welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get set up, and check the [roadmap](ROADMAP.md) for where help is most useful. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+Bug reports, detection rules, parsers and integrations are welcome. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) to get set up, and report vulnerabilities
+privately as described in [SECURITY.md](SECURITY.md).
+
+## Author
+
+Built and maintained by **Chanchal** ([@chanchalvdev](https://github.com/chanchalvdev)).
 
 ## License
 
-[MIT](LICENSE) © [ChanchalS7](https://github.com/ChanchalS7)
+[MIT](LICENSE) © [chanchalvdev](https://github.com/chanchalvdev)
