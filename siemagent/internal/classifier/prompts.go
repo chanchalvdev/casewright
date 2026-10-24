@@ -10,7 +10,7 @@ import (
 
 // DefaultPromptVersion is the system prompt used when PROMPT_VERSION is unset.
 // Promote a new version only after it beats this one on the eval set.
-const DefaultPromptVersion = "v2"
+const DefaultPromptVersion = "v3"
 
 //go:embed prompts/classifier_*.txt
 var promptFS embed.FS
