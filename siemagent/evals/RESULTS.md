@@ -48,8 +48,19 @@ confidence 1.0 on real attacks.
 4. **Confidence is only loosely meaningful.** Every successful injection
    reported 1.0, so confidence must not be used to skip review.
 
-**Thresholds** (`threshold.json`) come from v2's smoke result minus about two
-cases of margin. v1 fails them.
+**Thresholds** (`threshold.json`) take the worse of v2's M4 and CI smoke
+results, minus about two cases of margin. v1 fails them.
+
+**CI vs M4.** v1 scored the same on both, but v2 did not. On GitHub's x86
+runners v2 scored 40.0% accuracy, 33.3% adversarial and 14.3% invalid
+(5 parse errors against 3 on the M4). So the same model and seed are not
+bit-for-bit reproducible across hardware, and the invalid-rate limit uses
+the CI number.
+
+**Gate proven.** PR #44 made v3 the default: v2 with only the label
+definitions removed, so every Go test still passed. On CI it scored 17.1%
+accuracy and 0% adversarial. The Eval check failed and every other check
+passed.
 
 **Caveat.** Labels are AI-drafted and unreviewed (`labeled_by` in the
 dataset). The independent agent listed cases where the label itself is
