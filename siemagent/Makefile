@@ -7,7 +7,7 @@ LOAD_ENV := set -a; [ -f .env ] && . ./.env; set +a;
 
 .PHONY: help build build-all build-frontend embed-binary \
         run serve dev \
-        test test-integration vet lint eval \
+        test test-integration vet lint eval eval-check \
         setup docker-up docker-down pull-models \
         seed clean check-env
 
@@ -41,6 +41,7 @@ help:
 	@echo "  Evals"
 	@echo "    make eval           Score the classifier: PROMPT=v1 SUBSET=smoke|full|holdout"
 	@echo "                        (EVAL_FLAGS=\"-check evals/threshold.json -rpm 5\")"
+	@echo "    make eval-check     Validate evals/dataset.jsonl and show its balance"
 	@echo ""
 	@echo "  Utilities"
 	@echo "    make seed           Send 10 sample syslog events to /classify"
@@ -110,6 +111,10 @@ EVAL_FLAGS ?=
 # the synthetic eval dataset, never real logs.
 eval:
 	@$(LOAD_ENV) go run ./cmd/eval -prompt $(PROMPT) -subset $(SUBSET) $(EVAL_FLAGS)
+
+# Check evals/dataset.jsonl and show its balance; no LLM needed.
+eval-check:
+	@go run ./cmd/eval -validate
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 

@@ -22,6 +22,25 @@ func TestPrompt_DefaultIsEmbedded(t *testing.T) {
 	}
 }
 
+// Every prompt after v1 (the legacy baseline) must offer the exact label set,
+// or the model cannot return a valid answer for the missing label.
+func TestPrompts_NameEveryLabel(t *testing.T) {
+	for _, v := range PromptVersions() {
+		if v == "v1" {
+			continue
+		}
+		p, err := Prompt(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, l := range Labels {
+			if !strings.Contains(p, `"`+string(l)+`"`) {
+				t.Errorf("prompt %s does not name label %q", v, l)
+			}
+		}
+	}
+}
+
 func TestUsePrompt_UnknownVersionKeepsCurrent(t *testing.T) {
 	c := New("k", "http://localhost", "m")
 	if err := c.UsePrompt("v999"); err == nil {

@@ -230,3 +230,17 @@ func TestPercentile(t *testing.T) {
 		t.Errorf("empty p50 = %v", p)
 	}
 }
+
+func TestWriteBalance(t *testing.T) {
+	cases, _ := Load(strings.NewReader(dataset))
+	var buf bytes.Buffer
+	if err := WriteBalance(&buf, cases); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{"5 cases", "Brute Force", "adversarial", "holdout", "smoke subset: 3 cases", "1 adversarial", "3 of 9 labels"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("balance is missing %q:\n%s", want, out)
+		}
+	}
+}

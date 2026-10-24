@@ -39,7 +39,21 @@ func run() int {
 	rpm := flag.Int("rpm", 0, "max LLM calls per minute (0 = unlimited; use ~5 for free-tier APIs)")
 	timeout := flag.Duration("timeout", 2*time.Minute, "timeout per LLM call")
 	seed := flag.Int("seed", -1, "sampling seed for repeatable runs (Ollama/OpenAI); -1 = unset")
+	validate := flag.Bool("validate", false, "check the dataset and print its balance, without calling an LLM")
 	flag.Parse()
+
+	if *validate {
+		all, err := eval.LoadFile(*dataset)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: dataset: %v\n", err)
+			return 2
+		}
+		if err := eval.WriteBalance(os.Stdout, all); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 2
+		}
+		return 0
+	}
 
 	cfg := config.Load()
 	if cfg.Provider == config.ProviderNone {
