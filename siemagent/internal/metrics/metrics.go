@@ -22,6 +22,14 @@ var (
 		},
 	)
 
+	LLMInvalidOutputTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "llm_invalid_output_total",
+			Help: "LLM answers that broke the output contract, by reason (parse_error, unknown_label, bad_severity, confidence_out_of_range).",
+		},
+		[]string{"reason"},
+	)
+
 	LLMStreamErrorsTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "llm_stream_errors_total",

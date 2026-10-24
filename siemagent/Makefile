@@ -7,7 +7,7 @@ LOAD_ENV := set -a; [ -f .env ] && . ./.env; set +a;
 
 .PHONY: help build build-all build-frontend embed-binary \
         run serve dev \
-        test test-integration vet lint \
+        test test-integration vet lint eval \
         setup docker-up docker-down pull-models \
         seed clean check-env
 
@@ -37,6 +37,10 @@ help:
 	@echo "    make test-integration  Run integration tests (needs Qdrant)"
 	@echo "    make vet            Run go vet"
 	@echo "    make lint           Run golangci-lint (install if missing)"
+	@echo ""
+	@echo "  Evals"
+	@echo "    make eval           Score the classifier: PROMPT=v1 SUBSET=smoke|full|holdout"
+	@echo "                        (EVAL_FLAGS=\"-check evals/threshold.json -rpm 5\")"
 	@echo ""
 	@echo "  Utilities"
 	@echo "    make seed           Send 10 sample syslog events to /classify"
@@ -94,6 +98,18 @@ lint:
 	  go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
 	fi
 	golangci-lint run ./...
+
+# ── Evals ─────────────────────────────────────────────────────────────────────
+
+PROMPT ?= v1
+SUBSET ?= smoke
+EVAL_FLAGS ?=
+
+# Uses the LLM settings from .env (LLM_PROVIDER, OLLAMA_MODEL, GEMINI_API_KEY).
+# Gemini's free tier may use prompts to improve Google products: only send it
+# the synthetic eval dataset, never real logs.
+eval:
+	@$(LOAD_ENV) go run ./cmd/eval -prompt $(PROMPT) -subset $(SUBSET) $(EVAL_FLAGS)
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
