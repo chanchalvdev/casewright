@@ -1,0 +1,645 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Casewright End-to-End Architecture",
+    "output": ".archify/arch/casewright-architecture.html",
+    "quality_profile": "showcase",
+    "locale": "en",
+    "repository": {
+      "url": "https://github.com/chanchalvdev/casewright.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "d27afc14fc825fe3142af05be5dcb00170112fbf"
+    },
+    "animation": "trace"
+  },
+  "components": [
+    {
+      "id": "log-sources",
+      "type": "external",
+      "label": "Log sources",
+      "sublabel": "hosts \u00b7 firewalls \u00b7 apps",
+      "pos": [
+        40,
+        200
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "casewright/cmd/casewright/main.go",
+          "line": 272,
+          "end_line": 289,
+          "label": "syslog listener wiring"
+        }
+      ]
+    },
+    {
+      "id": "syslog",
+      "type": "backend",
+      "label": "Syslog listener",
+      "sublabel": "internal/ingest",
+      "pos": [
+        340,
+        200
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "UDP + TCP",
+      "sources": [
+        {
+          "path": "casewright/internal/ingest/syslog.go",
+          "line": 40,
+          "end_line": 135,
+          "label": "ListenSyslog"
+        }
+      ]
+    },
+    {
+      "id": "pool",
+      "type": "messagebus",
+      "label": "Worker pool",
+      "sublabel": "internal/pipeline",
+      "pos": [
+        630,
+        200
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "sheds load when full",
+      "sources": [
+        {
+          "path": "casewright/internal/api/live_ingest.go",
+          "line": 44,
+          "end_line": 60,
+          "label": "TrySubmit"
+        },
+        {
+          "path": "casewright/internal/pipeline/pool.go",
+          "line": 1,
+          "end_line": 96
+        }
+      ]
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "LLM provider",
+      "sublabel": "Gemini \u00b7 Ollama \u00b7 OpenAI",
+      "pos": [
+        900,
+        200
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "off when none",
+      "sources": [
+        {
+          "path": "casewright/internal/classifier/classifier.go",
+          "line": 56,
+          "end_line": 142,
+          "label": "OpenAI-compatible client"
+        }
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "AI investigator",
+      "sublabel": "internal/agent",
+      "pos": [
+        1200,
+        200
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "P1/P2 \u00b7 bounded slots",
+      "sources": [
+        {
+          "path": "casewright/internal/api/investigate.go",
+          "line": 36,
+          "end_line": 133,
+          "label": "startInvestigation"
+        },
+        {
+          "path": "casewright/internal/agent/stream.go",
+          "line": 37,
+          "label": "RunBriefStream"
+        }
+      ]
+    },
+    {
+      "id": "intel",
+      "type": "external",
+      "label": "Threat intel APIs",
+      "sublabel": "AbuseIPDB \u00b7 OTX",
+      "pos": [
+        1500,
+        200
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "casewright/cmd/casewright/main.go",
+          "line": 477,
+          "end_line": 486,
+          "label": "agent tool registry"
+        }
+      ]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "React dashboard",
+      "sublabel": "Vite \u00b7 TanStack Query",
+      "pos": [
+        40,
+        400
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "analyst",
+      "sources": [
+        {
+          "path": "casewright/web/src/lib/api.ts",
+          "line": 90,
+          "end_line": 106,
+          "label": "/api client + CSRF header"
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "security",
+      "label": "HTTP API (chi)",
+      "sublabel": "internal/api",
+      "pos": [
+        340,
+        400
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "auth \u00b7 RBAC \u00b7 audit \u00b7 rate limit",
+      "sources": [
+        {
+          "path": "casewright/internal/api/server.go",
+          "line": 145,
+          "end_line": 243,
+          "label": "router + middleware"
+        }
+      ]
+    },
+    {
+      "id": "detect",
+      "type": "backend",
+      "label": "Detection classifier",
+      "sublabel": "Sigma rules first",
+      "pos": [
+        630,
+        400
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "rule hit skips LLM",
+      "sources": [
+        {
+          "path": "casewright/internal/detection/classifier.go",
+          "line": 64,
+          "end_line": 110,
+          "label": "ClassifyStream"
+        },
+        {
+          "path": "casewright/cmd/casewright/main.go",
+          "line": 136,
+          "end_line": 173,
+          "label": "buildDetection"
+        }
+      ]
+    },
+    {
+      "id": "record",
+      "type": "backend",
+      "label": "record()",
+      "sublabel": "IOC \u2192 suppress \u2192 store",
+      "pos": [
+        900,
+        400
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "every ingest path",
+      "sources": [
+        {
+          "path": "casewright/internal/api/server.go",
+          "line": 430,
+          "end_line": 465,
+          "label": "record"
+        }
+      ]
+    },
+    {
+      "id": "incidents",
+      "type": "backend",
+      "label": "Incident service",
+      "sublabel": "correlate IP/user/host",
+      "pos": [
+        1200,
+        400
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "time window",
+      "sources": [
+        {
+          "path": "casewright/internal/incident/service.go",
+          "line": 90,
+          "end_line": 168,
+          "label": "Observe"
+        },
+        {
+          "path": "casewright/internal/api/incidents.go",
+          "line": 27,
+          "label": "correlate"
+        }
+      ]
+    },
+    {
+      "id": "response",
+      "type": "backend",
+      "label": "Response engine",
+      "sublabel": "playbooks",
+      "pos": [
+        1500,
+        400
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "approval by default",
+      "sources": [
+        {
+          "path": "casewright/internal/response/engine.go",
+          "line": 97,
+          "end_line": 127,
+          "label": "OnAlert / propose"
+        },
+        {
+          "path": "casewright/internal/api/response.go",
+          "line": 27,
+          "end_line": 36
+        }
+      ]
+    },
+    {
+      "id": "qdrant",
+      "type": "database",
+      "label": "Qdrant",
+      "sublabel": "siem_events \u00b7 768-d",
+      "pos": [
+        340,
+        600
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "casewright/cmd/casewright/main.go",
+          "line": 445,
+          "end_line": 456,
+          "label": "connectQdrant"
+        },
+        {
+          "path": "casewright/internal/api/handlers.go",
+          "line": 102,
+          "end_line": 115,
+          "label": "handleSearch"
+        }
+      ]
+    },
+    {
+      "id": "ollama",
+      "type": "cloud",
+      "label": "Ollama embeddings",
+      "sublabel": "nomic-embed-text",
+      "pos": [
+        630,
+        600
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "casewright/internal/classifier/classifier.go",
+          "line": 236,
+          "end_line": 271,
+          "label": "Index / indexEvent"
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "Postgres",
+      "sublabel": "events \u00b7 cases \u00b7 users",
+      "pos": [
+        900,
+        600
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": "memory fallback",
+      "sources": [
+        {
+          "path": "casewright/cmd/casewright/main.go",
+          "line": 207,
+          "end_line": 259,
+          "label": "stores on one pool"
+        }
+      ]
+    },
+    {
+      "id": "hub",
+      "type": "messagebus",
+      "label": "WebSocket hub",
+      "sublabel": "/ws/alerts",
+      "pos": [
+        1200,
+        40
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "casewright/internal/api/hub.go",
+          "line": 62,
+          "end_line": 70,
+          "label": "Broadcast"
+        }
+      ]
+    },
+    {
+      "id": "webhook",
+      "type": "external",
+      "label": "Containment webhook",
+      "sublabel": "+ Slack",
+      "pos": [
+        1500,
+        600
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "sources": [
+        {
+          "path": "casewright/internal/response/executor.go",
+          "line": 38,
+          "end_line": 115,
+          "label": "HTTPExecutor"
+        }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Local infrastructure (docker-compose)",
+      "wraps": [
+        "qdrant",
+        "ollama",
+        "postgres"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "logs-in",
+      "from": "log-sources",
+      "to": "syslog",
+      "label": "syslog UDP/TCP",
+      "variant": "emphasis"
+    },
+    {
+      "id": "enqueue",
+      "from": "syslog",
+      "to": "pool",
+      "label": "TrySubmit",
+      "variant": "emphasis"
+    },
+    {
+      "id": "pool-classify",
+      "from": "pool",
+      "to": "detect",
+      "label": "classify",
+      "variant": "emphasis"
+    },
+    {
+      "id": "dashboard-api",
+      "from": "web",
+      "to": "api",
+      "label": "REST /api \u00b7 cookie",
+      "variant": "security"
+    },
+    {
+      "id": "api-classify",
+      "from": "api",
+      "to": "detect",
+      "label": "Classify()",
+      "variant": "emphasis"
+    },
+    {
+      "id": "no-rule-llm",
+      "from": "detect",
+      "to": "llm",
+      "label": "no rule hit",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "verdict",
+      "from": "detect",
+      "to": "record",
+      "label": "verdict",
+      "variant": "emphasis"
+    },
+    {
+      "id": "persist",
+      "from": "record",
+      "to": "postgres",
+      "label": "persist event"
+    },
+    {
+      "id": "correlate",
+      "from": "record",
+      "to": "incidents",
+      "label": "correlate",
+      "variant": "emphasis"
+    },
+    {
+      "id": "on-alert",
+      "from": "incidents",
+      "to": "response",
+      "label": "OnAlert"
+    },
+    {
+      "id": "contain",
+      "from": "response",
+      "to": "webhook",
+      "label": "after approval",
+      "variant": "security"
+    },
+    {
+      "id": "investigate",
+      "from": "incidents",
+      "to": "agent",
+      "label": "P1/P2 brief",
+      "variant": "dashed"
+    },
+    {
+      "id": "agent-llm",
+      "from": "agent",
+      "to": "llm",
+      "label": "tool-calling chat"
+    },
+    {
+      "id": "agent-tools",
+      "from": "agent",
+      "to": "intel",
+      "label": "IP reputation"
+    },
+    {
+      "id": "index",
+      "from": "detect",
+      "to": "ollama",
+      "label": "embed (async)",
+      "variant": "dashed"
+    },
+    {
+      "id": "upsert",
+      "from": "ollama",
+      "to": "qdrant",
+      "label": "upsert vector",
+      "variant": "dashed"
+    },
+    {
+      "id": "search",
+      "from": "api",
+      "to": "qdrant",
+      "label": "/api/search"
+    },
+    {
+      "id": "stream",
+      "from": "agent",
+      "to": "hub",
+      "label": "stream chunks"
+    },
+    {
+      "id": "ws-push",
+      "from": "hub",
+      "to": "web",
+      "label": "WebSocket push",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          14,
+          72
+        ],
+        [
+          14,
+          432
+        ]
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "1 \u00b7 Ingest",
+      "items": [
+        "Three ways in: syslog UDP/TCP, POST /api/classify or /api/ingest, and the CLI (casewright <logfile>). SEED_LOG_FILE replays a demo log at start.",
+        "Syslog lines go to a worker pool with TrySubmit. A slow LLM drops lines and counts them in metrics, so senders never block.",
+        "The parser turns syslog/JSON lines into a LogEvent before classification."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "2 \u00b7 Classify (rules first)",
+      "items": [
+        "In-house Sigma engine runs first. On a rule hit in rules-first mode the LLM is skipped (LLMCallsSaved metric).",
+        "No rule hit \u2192 OpenAI-compatible LLM (Gemini default, Ollama or OpenAI). LLM error + rule hit \u2192 the rule verdict is used, so the alert is not lost.",
+        "LLM_PROVIDER=none runs rules only: unmatched events are stored as Unclassified."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "3 \u00b7 record(): one path for every event",
+      "items": [
+        "IOC watchlists enrich the event (in-memory hash maps; feeds refresh in the background).",
+        "A matching suppression marks the event: it is stored but goes no further.",
+        "The event is persisted, then correlated into an incident that shares IP, user or host within the window."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "4 \u00b7 Respond & investigate",
+      "items": [
+        "Playbooks propose actions on alert; containment and Slack go through webhooks only after a human approves.",
+        "The AI investigator starts once per incident when it opens or escalates to P1/P2, not once per alert. Limited slots; busy \u2192 skipped and counted.",
+        "Agent tools: AbuseIPDB, OTX, MITRE lookup, similar past events (Qdrant). Output streams over WebSocket and is saved as an incident note."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Security & trust",
+      "items": [
+        "Login: bcrypt local accounts, hashed session cookie (SameSite=Strict + X-Requested-With), or SIEM_API_KEYS (SHA-256, constant-time).",
+        "Middleware: request ID, logging, panic recovery, per-IP rate limit (login 1 rps), security headers, CORS, audit trail, role checks for admin routes.",
+        "?api_key= is accepted only on WebSocket upgrades, because browsers cannot set headers there."
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Storage & degradation",
+      "items": [
+        "POSTGRES_DSN set: events, incidents, actions, users, suppressions and IOCs share one pool; unreachable DB is fatal. Unset: memory stores, lost on restart.",
+        "Qdrant down at start \u2192 semantic search and the similar-events tool are turned off; everything else runs.",
+        "Retention (Postgres only) is off by default and purges only resolved incidents. /metrics exposes Prometheus counters."
+      ]
+    }
+  ]
+}

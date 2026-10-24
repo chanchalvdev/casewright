@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-24
+
+First release under the Casewright name and the first since v1.0: an
+open-source AI security analyst, from raw log line to resolved incident.
+The major version marks the `siemagent` → `casewright` rename of the binary,
+images, module and database (see Upgrading below).
+
 ### Changed
 - **Code renamed from `siemagent` to `casewright`.** The folder, Go module
   (`github.com/chanchalvdev/casewright/casewright`), binary, container images
@@ -28,6 +35,16 @@ All notable changes to this project are documented here. The format follows
   new name, and the repository moved to `chanchalvdev/casewright` (old URLs
   redirect). The `siemagent` folder, Go module, binary, container images and
   database keep their names until a later release.
+- **Go 1.26** (toolchain go1.26.10): ten standard-library vulnerabilities
+  in Go 1.25 are fixed only in 1.26.9+. `golang.org/x/net`, `x/text` and the
+  dashboard's `follow-redirects` are updated to patched versions, and CI uses
+  golangci-lint v2.14.0.
+- Redesigned sign-in page, a Casewright logo and shared loading states
+  across the dashboard.
+- README rewritten around the problem Casewright solves, with an animated
+  architecture diagram and screenshots. Configuration, API and usage
+  reference moved to `docs/CONFIGURATION.md`, `docs/API.md` and
+  `docs/USAGE.md`.
 
 ### Added
 - IOC watchlists: IPs, ranges, domains and file hashes from threat feeds
@@ -43,12 +60,6 @@ All notable changes to this project are documented here. The format follows
   filled from JSON keys and sshd, sudo, firewall, web-access and key=value
   logs. Sigma rules can use these names or their usual Sigma field names.
 
-## [0.1.0] - unreleased
-
-First public release: an open-source AI security operations platform, from
-raw log line to resolved incident.
-
-### Added
 
 **Get started**
 - One-command demo: `make demo` runs Postgres, the API, the dashboard and a
@@ -118,5 +129,12 @@ raw log line to resolved incident.
 - API keys are compared with HMAC-SHA256 under a per-process key.
 - Webhook URLs are never returned by the API or stored with actions.
 
-[Unreleased]: https://github.com/chanchalvdev/casewright/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/chanchalvdev/casewright/releases/tag/v0.1.0
+## [1.0] - 2026-07-13
+
+Initial release as Go SIEM Agent: syslog and JSON parsing, LLM
+classification with MITRE ATT&CK mapping, Qdrant semantic search, an
+investigation agent with threat-intel tools and a real-time dashboard.
+
+[Unreleased]: https://github.com/chanchalvdev/casewright/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/chanchalvdev/casewright/compare/v1.0...v2.0.0
+[1.0]: https://github.com/chanchalvdev/casewright/releases/tag/v1.0
