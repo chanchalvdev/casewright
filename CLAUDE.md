@@ -221,6 +221,7 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | `LLM_PROVIDER=none` rules-only mode; demo seeds from `SEED_LOG_FILE` | A first look must not need an API key; the demo is smoke-tested in CI so it cannot rot |
 | 2026-10 | IOC matching in-process (hash maps + per-prefix maps), feeds in memory | Constant-time lookups on every event with no extra service; a failed feed download keeps the last good list |
 | 2026-10 | MTTD from the log time of the opening alert, only when within 24h; MTTA on first assign/status change | Replays and forged timestamps must not distort metrics; a comment is not taking ownership |
+| 2026-10 | Normalised fields are an ECS subset in `LogEvent.Fields`, parser values first | One schema for rules, correlation and hunting; ECS names are what analysts and Sigma users already know |
 | 2026-10 | Product renamed Casewright; brand and docs first, code identifiers (`siemagent` module, binary, images, DB) in a later PR | It works cases after a SIEM fires, it is not a SIEM; "Casefile" was taken by an open-source SOC tracker. Code rename waits so open PRs are not broken |
 | 2026-10 | Phase 9 (SSO, multi-tenancy) built last; new tables carry a `tenant_id` from 11-01 on | Tenancy is invasive and has no second tenant yet; the column now avoids a retrofit later |
 | 2026-10-23 | Go 1.26 (toolchain go1.26.10) | govulncheck: 10 stdlib CVEs fixed only in 1.26.9+, and the fixed golang.org/x/net v0.60.0 requires Go 1.26 |

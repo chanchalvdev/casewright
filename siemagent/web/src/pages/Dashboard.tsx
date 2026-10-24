@@ -25,6 +25,7 @@ import { Metrics } from './Metrics'
 import { useAuth } from '../auth/auth'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { DetectionList } from '../components/DetectionList'
+import { EventFields } from '../components/EventFields'
 import { Wordmark } from '../components/BrandMark'
 import { Spinner } from '../components/Loading'
 
@@ -518,6 +519,8 @@ function DetailPanel({ event, onClose }: { event: ClassifiedEvent; onClose: () =
           )}
         </div>
       )}
+
+      <EventFields fields={event.event.fields} />
 
       {/* Raw log */}
       <div>
