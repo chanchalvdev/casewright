@@ -22,6 +22,7 @@ import (
 	"github.com/chverma/siemagent/internal/classifier"
 	"github.com/chverma/siemagent/internal/config"
 	"github.com/chverma/siemagent/internal/eval"
+	"github.com/chverma/siemagent/internal/tracing"
 )
 
 func main() {
@@ -79,6 +80,21 @@ func run() int {
 	if *seed >= 0 {
 		cls.SetSeed(*seed)
 	}
+	cls.SetStreamUsage(cfg.Provider == config.ProviderOllama)
+
+	// Eval spans carry env=eval so they never mix with live traffic.
+	shutdownTracing, err := tracing.Setup(context.Background(), tracing.Config{Env: tracing.EnvEval, LLMProvider: cfg.Provider})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: tracing: %v\n", err)
+		return 2
+	}
+	defer func() {
+		flushCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := shutdownTracing(flushCtx); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: tracing flush: %v\n", err)
+		}
+	}()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

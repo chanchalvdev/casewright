@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"regexp"
 	"strings"
 	"time"
 
 	openai "github.com/sashabaranov/go-openai"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
@@ -46,6 +48,7 @@ type Classifier struct {
 	prompt        string // system prompt; empty = DefaultPromptVersion
 	promptVersion string
 	seed          *int           // optional; set by evals for repeatable runs
+	streamUsage   bool           // ask for token counts in the stream (provider must support it)
 	embedder      VectorEmbedder // optional; nil = no indexing
 	indexer       Indexer        // optional; nil = no indexing
 }
@@ -80,6 +83,10 @@ func (c *Classifier) PromptVersion() string {
 // SetSeed asks the provider for repeatable sampling (supported by Ollama and
 // OpenAI). Used by evals; live classification leaves it unset.
 func (c *Classifier) SetSeed(seed int) { c.seed = &seed }
+
+// SetStreamUsage asks the provider to report token counts at the end of each
+// stream. Only enable it for providers known to accept stream_options.
+func (c *Classifier) SetStreamUsage(on bool) { c.streamUsage = on }
 
 func (c *Classifier) systemPrompt() string {
 	if c.prompt == "" {
@@ -120,20 +127,41 @@ func (c *Classifier) Classify(ctx context.Context, ev models.LogEvent) (models.C
 }
 
 // ClassifyStream streams the LLM response, calling onChunk for each text delta.
-// If onChunk is nil it is ignored.
+// If onChunk is nil it is ignored. Each call is one trace span.
 func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onChunk func(string)) (models.ClassifiedEvent, error) {
-	start := time.Now()
-	userMsg := buildUserMessage(ev)
+	ctx, span := tracer.Start(ctx, "chat "+c.model, trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
 
-	stream, err := c.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	var call llmCall
+	call.input = buildUserMessage(ev)
+	result, err := c.classify(ctx, ev, &call, onChunk)
+	c.recordSpan(span, call, result, err)
+	return result, err
+}
+
+// llmCall is what one request sent and received, kept for the trace span.
+type llmCall struct {
+	input  string
+	output string
+	usage  *openai.Usage
+}
+
+func (c *Classifier) classify(ctx context.Context, ev models.LogEvent, call *llmCall, onChunk func(string)) (models.ClassifiedEvent, error) {
+	start := time.Now()
+	req := openai.ChatCompletionRequest{
 		Model: c.model,
 		Messages: []openai.ChatCompletionMessage{
 			{Role: openai.ChatMessageRoleSystem, Content: c.systemPrompt()},
-			{Role: openai.ChatMessageRoleUser, Content: userMsg},
+			{Role: openai.ChatMessageRoleUser, Content: call.input},
 		},
 		Temperature: 0.1,
 		Seed:        c.seed,
-	})
+	}
+	if c.streamUsage {
+		req.StreamOptions = &openai.StreamOptions{IncludeUsage: true}
+	}
+
+	stream, err := c.client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
 		metrics.LLMStreamErrorsTotal.Inc()
 		return models.ClassifiedEvent{}, fmt.Errorf("stream open: %w", err)
@@ -143,8 +171,18 @@ func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onC
 	var sb strings.Builder
 	for {
 		chunk, err := stream.Recv()
-		if err != nil {
+		if errors.Is(err, io.EOF) {
 			break
+		}
+		if err != nil {
+			// A broken stream is a transport failure, not a bad answer:
+			// report it as such instead of failing to parse a partial reply.
+			metrics.LLMStreamErrorsTotal.Inc()
+			call.output = sb.String()
+			return models.ClassifiedEvent{}, fmt.Errorf("stream recv: %w", err)
+		}
+		if chunk.Usage != nil {
+			call.usage = chunk.Usage
 		}
 		if len(chunk.Choices) > 0 {
 			text := chunk.Choices[0].Delta.Content
@@ -159,8 +197,13 @@ func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onC
 
 	elapsed := time.Since(start).Seconds()
 	metrics.ClassificationDurationSeconds.Observe(elapsed)
+	if u := call.usage; u != nil {
+		metrics.LLMTokensTotal.WithLabelValues("input").Add(float64(u.PromptTokens))
+		metrics.LLMTokensTotal.WithLabelValues("output").Add(float64(u.CompletionTokens))
+	}
 
 	raw := sb.String()
+	call.output = raw
 	analysis, err := decodeLLM(raw)
 	if err != nil {
 		metrics.LLMInvalidOutputTotal.WithLabelValues(IssueParseError).Inc()
