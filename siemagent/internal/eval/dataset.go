@@ -45,7 +45,16 @@ type Case struct {
 	Split            string `json:"split,omitempty"` // dev (default) | holdout
 	Smoke            bool   `json:"smoke,omitempty"`
 	Note             string `json:"note,omitempty"`
+	LabeledBy        string `json:"labeled_by,omitempty"` // human (default) | rule | claude: who chose expected
 }
+
+// Who chose a case's label. Labels from rule tags or an AI draft should be
+// reviewed by a person; review means setting labeled_by to human.
+const (
+	LabeledByHuman  = "human"
+	LabeledByRule   = "rule"   // mapped from a detection rule's MITRE tag
+	LabeledByClaude = "claude" // drafted by an AI assistant, not the model under test
+)
 
 // LoadFile reads a JSONL dataset file.
 func LoadFile(path string) ([]Case, error) {
@@ -118,6 +127,13 @@ func (c *Case) check() error {
 	case SplitDev, SplitHoldout:
 	default:
 		return fmt.Errorf("split %q is not dev or holdout", c.Split)
+	}
+	switch c.LabeledBy {
+	case "":
+		c.LabeledBy = LabeledByHuman
+	case LabeledByHuman, LabeledByRule, LabeledByClaude:
+	default:
+		return fmt.Errorf("labeled_by %q is not human, rule or claude", c.LabeledBy)
 	}
 	switch c.Format {
 	case "":

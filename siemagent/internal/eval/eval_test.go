@@ -49,6 +49,7 @@ func TestLoad_RejectsBadCases(t *testing.T) {
 		"missing log":      `{"id":"b","expected":"Benign","kind":"typical"}`,
 		"duplicate id":     `{"id":"b","log":"x","expected":"Benign","kind":"typical"}` + "\n" + `{"id":"b","log":"y","expected":"Benign","kind":"typical"}`,
 		"unknown split":    `{"id":"b","log":"x","expected":"Benign","kind":"typical","split":"test"}`,
+		"unknown labeler":  `{"id":"b","log":"x","expected":"Benign","kind":"typical","labeled_by":"gpt"}`,
 		"not json at all ": `this is not json`,
 	}
 	for name, in := range bad {
@@ -238,7 +239,7 @@ func TestWriteBalance(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := buf.String()
-	for _, want := range []string{"5 cases", "Brute Force", "adversarial", "holdout", "smoke subset: 3 cases", "1 adversarial", "3 of 9 labels"} {
+	for _, want := range []string{"5 cases", "Brute Force", "adversarial", "holdout", "smoke subset: 3 cases", "1 adversarial", "3 of 9 labels", "labeled by: human 5, rule 0, claude 0"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("balance is missing %q:\n%s", want, out)
 		}
