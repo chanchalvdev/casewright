@@ -35,3 +35,6 @@ casewright/casewright
 
 # Personal learning notes and plans (not part of the project)
 learning/
+
+# Archify diagram workspace (published copies live in docs/assets)
+.archify/
