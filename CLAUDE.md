@@ -4,8 +4,8 @@
 
 Casewright (formerly Go SIEM Agent) is an open-source, local-first AI security
 analyst: alerts in, resolved cases out, confirmed cases turned into new rules.
-The code still uses the old name (`siemagent/` folder, Go module, binary,
-images, database) until a dedicated code-rename PR.
+Code, folder, Go module, binary, images and database all use `casewright`
+(renamed from `siemagent` on 2026-10-24; old `SIEM_*` env names still work).
 
 A Go CLI + HTTP server that ingests syslog/JSON log events, classifies them via an
 OpenAI-compatible LLM (Kimchi/local Ollama), maps results to MITRE ATT&CK, and stores
@@ -14,7 +14,7 @@ embeddings in Qdrant for semantic similarity search. Ships a React (Vite) dashbo
 ```
 casewright/
 ├── CLAUDE.md                        ← This file (harness bible)
-├── Makefile                         ← Root task runner (delegates to siemagent/)
+├── Makefile                         ← Root task runner (delegates to casewright/)
 ├── scripts/                         ← Harness automation
 │   ├── quality-gate.sh
 │   ├── test-run.sh
@@ -27,8 +27,8 @@ casewright/
 ├── .github/workflows/
 │   ├── ci.yml
 │   └── self-improve.yml
-├── siemagent/                       ← Core Go + React application
-│   ├── cmd/siemagent/main.go
+├── casewright/                       ← Core Go + React application
+│   ├── cmd/casewright/main.go
 │   ├── internal/
 │   │   ├── api/          server.go · handlers_phase2.go · health.go · swagger.go
 │   │   ├── classifier/   classifier.go (LLM + MITRE + Qdrant indexing)
@@ -49,10 +49,10 @@ casewright/
 │   │   │   └── __tests__/
 │   │   ├── vite.config.ts
 │   │   └── vitest.config.ts
-│   ├── Makefile                     ← siemagent-specific tasks (existing)
+│   ├── Makefile                     ← casewright-specific tasks (existing)
 │   ├── docker-compose.yml           ← Qdrant + Ollama + Postgres
 │   └── .env.example
-└── siemagent/sample.log             ← Test log events
+└── casewright/sample.log             ← Test log events
 ```
 
 ---
@@ -80,14 +80,14 @@ Web:  tsc -b        →  oxlint              →  vitest run          →  vite 
 ### 4. Security Non-Negotiables
 - `KIMCHI_API_KEY` / `OPENAI_API_KEY` must NEVER appear in source files.
 - `.env` is git-ignored — only `.env.example` (with placeholders) is committed.
-- `siemagent/.env` ALREADY EXISTS with real keys — never stage it.
+- `casewright/.env` ALREADY EXISTS with real keys — never stage it.
 - The `check-env` Make target guards against running without keys.
 - Qdrant and Ollama endpoints are local — never expose them publicly without auth.
 
 ### 5. Agent Contract
-- Only touch files in `siemagent/` — never modify harness scripts without instruction.
+- Only touch files in `casewright/` — never modify harness scripts without instruction.
 - Run `make quality-gate` before declaring any task done.
-- Keep the existing `siemagent/Makefile` intact; the root `Makefile` delegates to it.
+- Keep the existing `casewright/Makefile` intact; the root `Makefile` delegates to it.
 - All new Go packages must have at least one `_test.go` file.
 - All new React components must have a matching `__tests__/*.test.tsx`.
 
@@ -95,8 +95,8 @@ Web:  tsc -b        →  oxlint              →  vitest run          →  vite 
 
 ## Technology Constraints
 
-### Go (siemagent/)
-- Module: `github.com/chverma/siemagent`  
+### Go (casewright/)
+- Module: `github.com/chanchalvdev/casewright/casewright`  
 - Go 1.26 — use `min()` built-in (available since 1.21), not a hand-rolled helper
 - Logging: `log/slog` (stdlib) — not zerolog, not logrus
 - HTTP: `go-chi/chi/v5`
@@ -105,7 +105,7 @@ Web:  tsc -b        →  oxlint              →  vitest run          →  vite 
 - No `fmt.Println` in production paths — use `slog.Info/Warn/Error`
 - Worker concurrency via `internal/pipeline.WorkerPool` — don't spawn raw goroutines in handlers
 
-### React / Web (siemagent/web/)
+### React / Web (casewright/web/)
 - Vite 8 + React 19 + TypeScript 6
 - State: TanStack Query v5 for server state — no custom fetch hooks
 - Linter: oxlint (not ESLint) — `npm run lint` runs `oxlint`
@@ -114,9 +114,9 @@ Web:  tsc -b        →  oxlint              →  vitest run          →  vite 
 - No `console.log` in production components — use dev-only conditional logging
 
 ### Docker / Infrastructure
-- `siemagent/docker-compose.yml` manages: Qdrant (vector DB), Ollama (local LLM), Postgres
+- `casewright/docker-compose.yml` manages: Qdrant (vector DB), Ollama (local LLM), Postgres
 - `make docker-up` before running integration tests
-- Qdrant collection name: `siem_events`, vector dim: 768 (nomic-embed-text)
+- Qdrant collection name: `casewright_events`, vector dim: 768 (nomic-embed-text)
 - Ollama model: `nomic-embed-text` (~274 MB)
 
 ---
@@ -151,7 +151,7 @@ Web:  tsc -b        →  oxlint              →  vitest run          →  vite 
 
 ---
 
-## Environment Variables (siemagent/.env)
+## Environment Variables (casewright/.env)
 
 ```bash
 # LLM (required)
@@ -202,7 +202,7 @@ make seed                # POST 10 sample events to /classify
 | Project start | Integration tests separate build tag | CI can run unit-only without Docker |
 | 2026-10 | Gemini default LLM; `LLM_PROVIDER` selects gemini / ollama / openai | Ollama keeps logs on-host; one OpenAI-compatible client for all |
 | 2026-10 | Postgres event store behind `store.Store`, memory fallback | Durable history; unreachable configured DB is fatal, not a silent downgrade |
-| 2026-10 | API keys via `SIEM_API_KEYS` (SHA-256 + constant-time compare) | Minimal auth before RBAC/SSO; `?api_key=` only on WebSocket upgrades |
+| 2026-10 | API keys via `CASEWRIGHT_API_KEYS` (SHA-256 + constant-time compare) | Minimal auth before RBAC/SSO; `?api_key=` only on WebSocket upgrades |
 | 2026-10 | Dropped `middleware.RealIP` | Trusted client X-Forwarded-For, letting anyone spoof past the rate limiter |
 | 2026-10 | Syslog listener sheds load (`TrySubmit`) instead of blocking | A slow LLM must never stall senders; drops are counted in metrics |
 | 2026-10 | MIT license; platform roadmap in ROADMAP.md | Open-source release as an AI SOC platform, rules-first then AI |
@@ -230,3 +230,4 @@ make seed                # POST 10 sample events to /classify
 | 2026-10-24 | Tracing over plain OTLP: Phoenix on the VM for live traffic, Langfuse Cloud only for eval runs | Real logs stay on-host; one protocol keeps the backend a config choice |
 | 2026-10-24 | Production on one OCI Always Free A1 VM: Caddy is the only public service, `LLM_PROVIDER=ollama` forced, prompt follows `DefaultPromptVersion` | Free, and Gemini's free tier may use prompts for training; the gate-approved prompt is the one that ships |
 | 2026-10-24 | Classifier default prompt v1 → v2 (fixed label set with definitions); eval thresholds from v2 smoke minus ~2 cases | Independent comparison: accuracy 21% → 41%, invalid outputs 42% → 7%, p = 0.0015; injection and over-predicted Reconnaissance remain (evals/RESULTS.md) |
+| 2026-10-24 | Code renamed `siemagent` → `casewright` (folder, module, binary, images, DB, cookie, Qdrant collection); `SIEM_*` env names kept as fallbacks | No open PRs and no production deploy yet: the cheapest moment; fallbacks keep existing .env files working |

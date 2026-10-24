@@ -1,7 +1,7 @@
-# Root task runner. Application tasks live in siemagent/Makefile; this file
+# Root task runner. Application tasks live in casewright/Makefile; this file
 # delegates to it and adds the cross-stack quality gate that CI runs.
 
-APP := siemagent
+APP := casewright
 WEB := $(APP)/web
 
 .PHONY: help hooks quality-gate quality-go quality-web test test-integration lint \
@@ -29,7 +29,7 @@ quality-go:
 	cd $(APP) && go vet ./... && go vet -tags integration ./...
 	cd $(APP) && golangci-lint run --build-tags integration ./...
 	cd $(APP) && go test -race -timeout 120s ./...
-	cd $(APP) && go build ./cmd/siemagent
+	cd $(APP) && go build ./cmd/casewright
 
 quality-web:
 	cd $(WEB) && npm run lint && npx tsc -b && npm test && npx vite build
@@ -39,7 +39,7 @@ test:
 
 test-integration:
 	cd $(APP) && \
-	  POSTGRES_TEST_DSN=$${POSTGRES_TEST_DSN:-postgres://siemagent:siemagent@localhost:5433/siemagent?sslmode=disable} \
+	  POSTGRES_TEST_DSN=$${POSTGRES_TEST_DSN:-postgres://casewright:casewright@localhost:5433/casewright?sslmode=disable} \
 	  go test -race -tags integration -timeout 180s ./internal/... ./pkg/qdrant/...
 
 DEMO := docker compose -f $(APP)/demo/compose.yml
@@ -47,7 +47,7 @@ DEMO := docker compose -f $(APP)/demo/compose.yml
 demo:
 	$(DEMO) up -d --build --wait
 	@echo ""
-	@echo "Casewright demo: http://localhost:3000  (sign in as admin / siemagent-demo)"
+	@echo "Casewright demo: http://localhost:3000  (sign in as admin / casewright-demo)"
 	@echo "API docs:       http://localhost:8080/docs"
 	@echo "Actions sent:   $(DEMO) logs -f webhook"
 	@echo "Stop:           make demo-down   (add -v to the command to wipe data)"

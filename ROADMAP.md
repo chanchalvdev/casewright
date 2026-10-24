@@ -289,12 +289,12 @@ One connector per release keeps quality high. Good first targets:
       scenario seeded on first start; smoke-tested in CI
 - [ ] **Container images** published on every release; Helm chart for Kubernetes
 - [ ] **Versioned releases** with changelog and signed binaries
-- [x] **Versioned schema migrations** — numbered, checksummed, applied once under an advisory lock; `siemagent --migrate`
+- [x] **Versioned schema migrations** — numbered, checksummed, applied once under an advisory lock; `casewright --migrate`
 - [ ] **OpenTelemetry tracing** across ingest → classify → investigate
 - [ ] **Documentation site** — install, configuration, writing rules,
       writing connectors, API reference
 - [x] **Project name** — now **Casewright**; docs and UI renamed
-- [ ] **Code rename** — `siemagent` folder, Go module, binary, images and
+- [ ] **Code rename** — `casewright` folder, Go module, binary, images and
       database to `casewright`, in one PR before the first public release
 
 ## Deliberately not building

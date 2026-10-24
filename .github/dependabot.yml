@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: gomod
-    directory: /siemagent
+    directory: /casewright
     schedule: { interval: weekly, day: monday }
     labels: ["dependencies", "area: deps", "type: chore"]
     commit-message: { prefix: "chore(deps)" }
@@ -10,7 +10,7 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: npm
-    directory: /siemagent/web
+    directory: /casewright/web
     schedule: { interval: weekly, day: monday }
     labels: ["dependencies", "area: deps", "type: chore"]
     commit-message: { prefix: "chore(deps)" }
@@ -25,7 +25,7 @@ updates:
     commit-message: { prefix: "ci(deps)" }
 
   - package-ecosystem: docker
-    directories: [/siemagent, /siemagent/web]
+    directories: [/casewright, /casewright/web]
     schedule: { interval: weekly, day: monday }
     labels: ["dependencies", "area: deps", "type: chore"]
     commit-message: { prefix: "chore(deps)" }
