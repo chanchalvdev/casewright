@@ -32,3 +32,6 @@ siemagent/siemagent
 
 # Demo scenarios are documentation, not runtime logs
 !siemagent/demo/*.log
+
+# Personal learning notes and plans (not part of the project)
+learning/

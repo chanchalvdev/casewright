@@ -625,6 +625,37 @@ npx playwright test        # End-to-end tests (requires backend running)
 
 ---
 
+## Classifier Evals
+
+Prompt and model changes are scored on a hand-labeled set of log lines,
+including adversarial ones, instead of judged by eye.
+
+```bash
+cd siemagent
+make eval PROMPT=v1 SUBSET=smoke   # accuracy, per-label precision/recall, invalid-output rate, misses
+```
+
+- **Thresholds:** `siemagent/evals/threshold.json`. Pull requests that touch
+  the classifier run the smoke subset with Ollama in CI and fail below it; the
+  full set runs nightly (`.github/workflows/eval.yml`).
+- **Add a test case:** one JSON line in `siemagent/evals/dataset.jsonl`,
+  labeled by a person. Format and labeling rules: [`siemagent/evals/README.md`](siemagent/evals/README.md).
+- **Add a prompt version:** copy `internal/classifier/prompts/classifier_vN.txt`
+  to the next version, change one thing, run the eval. Production uses the
+  classifier's default version, so promoting a prompt is a reviewed change to
+  `DefaultPromptVersion` that the gate tests.
+- **Traces:** every LLM call is an OpenTelemetry span (`OTEL_EXPORTER_OTLP_ENDPOINT`,
+  or `LANGFUSE_*` keys). Eval runs are tagged `env=eval`, live traffic `env=live`.
+
+## Deploying
+
+[`siemagent/deploy/oci/`](siemagent/deploy/oci/README.md) runs the whole stack
+on one Oracle Cloud Always Free Ampere VM. Only Caddy (HTTPS) is public,
+classification uses a local Ollama model, and a release tag deploys after your
+approval, rolling back if the new version fails its health check.
+
+---
+
 ## Contributing
 
 Bug reports, detection content, parsers and integrations are all welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get set up, and check the [roadmap](ROADMAP.md) for where help is most useful. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
