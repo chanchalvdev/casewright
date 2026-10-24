@@ -20,7 +20,6 @@ the full result to `results/<prompt>_<time>_<provider>_<subset>.json`
 | File | What it is |
 |---|---|
 | `dataset.jsonl` | the labeled cases, one JSON object per line |
-| `candidates.jsonl` | unlabeled lines taken from the built-in detection rule samples, to copy into the dataset once you have labeled them |
 | `threshold.json` | the CI gate limits |
 | `results/` | saved runs |
 
@@ -41,6 +40,7 @@ the full result to `results/<prompt>_<time>_<provider>_<subset>.json`
 | `split` | no | `dev` (default) · `holdout` |
 | `smoke` | no | `true` puts the case in the pull-request subset |
 | `note` | no | why you chose the label, shown next to misses |
+| `labeled_by` | no | `human` (default) · `rule` · `claude` |
 
 The loader rejects unknown fields, unknown labels and duplicate ids, so a typo
 fails loudly instead of skewing the score.
@@ -86,7 +86,20 @@ version and change **one** thing, so the score change has one cause. Run
 `make eval PROMPT=vN+1 SUBSET=full` and compare against the previous result.
 Production switches only when `PROMPT_VERSION` is changed.
 
-`candidates.jsonl` (lines from the detection rule samples) and
-`candidates-adversarial.jsonl` (drafted adversarial lines, each noting the
-trick it uses) have `expected` left blank on purpose. Decide each label,
-severity and kind yourself, then copy the line into `dataset.jsonl`.
+## Where the current labels came from
+
+Every case records `labeled_by`:
+
+- `rule`: a detection rule's sample line, labeled from the rule's MITRE tag
+  (no judgment involved).
+- `claude`: drafted and labeled by an AI assistant, with the reason in `note`.
+  This is a different model from the one being tested, so the eval is not the
+  model grading itself, but the labels are still unreviewed.
+- `human`: chosen or confirmed by a person.
+
+Review the `rule` and `claude` cases: fix the label if you disagree, and set
+`labeled_by` to `human`. `make eval-check` shows how many are left. Until then,
+treat scores as provisional.
+
+Known gap in the label set: MITRE *Impact* (e.g. deleting shadow copies before
+ransomware) has no label, so those rule samples are left out.

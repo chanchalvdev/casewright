@@ -125,13 +125,14 @@ func truncate(s string, n int) string {
 // WriteBalance prints how a dataset is spread over labels, kinds, splits and
 // the smoke subset, next to the targets in evals/README.md.
 func WriteBalance(w io.Writer, cases []Case) error {
-	byLabel, byKind, bySplit := map[string]int{}, map[string]int{}, map[string]int{}
+	byLabel, byKind, bySplit, bySource := map[string]int{}, map[string]int{}, map[string]int{}, map[string]int{}
 	var smoke, smokeAdv, sev int
 	smokeLabels := map[string]bool{}
 	for _, c := range cases {
 		byLabel[c.Expected]++
 		byKind[c.Kind]++
 		bySplit[c.Split]++
+		bySource[c.LabeledBy]++
 		if c.ExpectedSeverity != "" {
 			sev++
 		}
@@ -168,5 +169,9 @@ func WriteBalance(w io.Writer, cases []Case) error {
 
 	p.f("\nsmoke subset: %d cases (target ~25), %d adversarial (target >= 5), %d of %d labels covered\n",
 		smoke, smokeAdv, len(smokeLabels), len(classifier.Labels))
+	p.f("labeled by: human %d, rule %d, claude %d\n", bySource[LabeledByHuman], bySource[LabeledByRule], bySource[LabeledByClaude])
+	if unreviewed := bySource[LabeledByRule] + bySource[LabeledByClaude]; unreviewed > 0 {
+		p.f("  %d labels were not chosen by a person: review them and set labeled_by to human\n", unreviewed)
+	}
 	return p.err
 }
