@@ -1,0 +1,8 @@
+{
+  "prompt_version": "v2",
+  "note": "Set 2026-10-24 from v2 on the 35-case smoke subset, llama3.2:3b, seed 42. M4 GPU: accuracy 12/35, adversarial 2/9, invalid 3/35. GitHub x86 CI: accuracy 14/35, adversarial 3/9, invalid 5/35. Each limit is the worse of the two minus about two cases of drift. v1 fails every limit except errors. Labels are AI-drafted and unreviewed: re-baseline after review. Raise these only when a better prompt lands, never lower them to make a PR pass.",
+  "min_accuracy": 0.28,
+  "min_adversarial_accuracy": 0.11,
+  "max_invalid_rate": 0.2,
+  "max_error_rate": 0.03
+}

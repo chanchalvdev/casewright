@@ -32,6 +32,7 @@ import (
 	"github.com/chverma/siemagent/internal/retention"
 	"github.com/chverma/siemagent/internal/store"
 	"github.com/chverma/siemagent/internal/suppression"
+	"github.com/chverma/siemagent/internal/tracing"
 	"github.com/chverma/siemagent/pkg/ollama"
 	pkgqdrant "github.com/chverma/siemagent/pkg/qdrant"
 )
@@ -75,8 +76,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("LLM provider configured", "component", "main", "version", version, "provider", cfg.Provider, "model", cfg.ModelName)
 	cls := classifier.New(cfg.APIKey, cfg.BaseURL, cfg.ModelName)
+	if cfg.PromptVersion != "" {
+		if err := cls.UsePrompt(cfg.PromptVersion); err != nil {
+			fmt.Fprintf(os.Stderr, "error: PROMPT_VERSION: %v\n", err)
+			os.Exit(1)
+		}
+	}
+	slog.Info("LLM provider configured", "component", "main", "version", version, "provider", cfg.Provider, "model", cfg.ModelName, "prompt_version", cls.PromptVersion())
+	// Ollama reports token counts in the stream; other providers are not
+	// guaranteed to accept stream_options.
+	cls.SetStreamUsage(cfg.Provider == config.ProviderOllama)
+	shutdownTracing, err := tracing.Setup(context.Background(), tracing.Config{Env: tracing.EnvLive, Version: version, LLMProvider: cfg.Provider})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: tracing: %v\n", err)
+		os.Exit(1)
+	}
+	defer flushTracing(shutdownTracing)
 	detCls, engine := buildDetection(cfg, cls)
 
 	if *serve {
@@ -151,6 +167,15 @@ func buildDetection(cfg config.Config, cls *classifier.Classifier) (classifier.I
 		return detection.NewClassifier(nil, engine, mode, cls.Index), engine
 	}
 	return detection.NewClassifier(cls, engine, mode, cls.Index), engine
+}
+
+// flushTracing sends spans still buffered at exit.
+func flushTracing(shutdown func(context.Context) error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := shutdown(ctx); err != nil {
+		slog.Warn("tracing flush failed", "component", "main", "error", err)
+	}
 }
 
 func runServer(cfg config.Config, cls *classifier.Classifier, detCls classifier.Interface, engine *detection.Engine) {
