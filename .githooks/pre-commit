@@ -11,7 +11,7 @@ if echo "$staged" | grep -E '(^|/)\.env(\..+)?$' | grep -v '\.env\.example$' >/d
   exit 1
 fi
 
-go_files=$(echo "$staged" | grep -E '^siemagent/.*\.go$' || true)
+go_files=$(echo "$staged" | grep -E '^casewright/.*\.go$' || true)
 if [ -n "$go_files" ]; then
   unformatted=$(cd "$root" && gofmt -l $go_files)
   if [ -n "$unformatted" ]; then
@@ -22,7 +22,7 @@ if [ -n "$go_files" ]; then
   fi
 fi
 
-web_files=$(echo "$staged" | grep -E '^siemagent/web/src/.*\.(ts|tsx)$' | sed 's#^siemagent/web/##' || true)
-if [ -n "$web_files" ] && [ -d "$root/siemagent/web/node_modules" ]; then
-  (cd "$root/siemagent/web" && npx --no-install oxlint $web_files)
+web_files=$(echo "$staged" | grep -E '^casewright/web/src/.*\.(ts|tsx)$' | sed 's#^casewright/web/##' || true)
+if [ -n "$web_files" ] && [ -d "$root/casewright/web/node_modules" ]; then
+  (cd "$root/casewright/web" && npx --no-install oxlint $web_files)
 fi

@@ -9,13 +9,13 @@ name: Eval
 on:
   pull_request:
     paths:
-      - siemagent/internal/classifier/**
-      - siemagent/internal/eval/**
-      - siemagent/cmd/eval/**
-      - siemagent/evals/**
+      - casewright/internal/classifier/**
+      - casewright/internal/eval/**
+      - casewright/cmd/eval/**
+      - casewright/evals/**
       # Dependency updates can swap the LLM client (go-openai) under the classifier.
-      - siemagent/go.mod
-      - siemagent/go.sum
+      - casewright/go.mod
+      - casewright/go.sum
       - .github/workflows/eval.yml
   schedule:
     - cron: "0 2 * * *"
@@ -46,7 +46,7 @@ jobs:
     timeout-minutes: 120
     defaults:
       run:
-        working-directory: siemagent
+        working-directory: casewright
     steps:
       - uses: actions/checkout@v7
 
@@ -63,8 +63,8 @@ jobs:
       - uses: actions/setup-go@v5
         if: steps.dataset.outputs.present == 'true'
         with:
-          go-version-file: siemagent/go.mod
-          cache-dependency-path: siemagent/go.sum
+          go-version-file: casewright/go.mod
+          cache-dependency-path: casewright/go.sum
 
       - name: Restore the Ollama model cache
         if: steps.dataset.outputs.present == 'true'
@@ -128,7 +128,7 @@ jobs:
         with:
           name: eval-${{ github.run_id }}
           path: |
-            siemagent/evals/results/*.json
-            siemagent/eval-report.txt
+            casewright/evals/results/*.json
+            casewright/eval-report.txt
           if-no-files-found: ignore
           retention-days: 30

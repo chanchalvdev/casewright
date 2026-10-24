@@ -82,7 +82,7 @@ git push origin v0.4.0
 
 The `Release` workflow then runs the quality gate, builds binaries for
 Linux and macOS (amd64/arm64) with checksums, publishes container images to
-GHCR (`ghcr.io/chanchalvdev/siemagent-api`, `ghcr.io/chanchalvdev/siemagent-web`)
+GHCR (`ghcr.io/chanchalvdev/casewright-api`, `ghcr.io/chanchalvdev/casewright-web`)
 and creates a GitHub release with generated notes grouped by label.
 
 Hotfixes branch from the release tag (`hotfix/<name>`), merge to `master`

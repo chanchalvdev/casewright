@@ -1,0 +1,107 @@
+# Production stack for one Oracle Cloud Always Free Ampere A1 VM (arm64,
+# 4 OCPU / 24 GB). Only Caddy is published to the internet; every other
+# service is reachable on the internal network only. Phoenix (traces) binds to
+# the VM's loopback: open it with `ssh -L 6006:localhost:6006 deploy@<vm>`.
+#
+# Deployed by deploy.sh, which sets IMAGE_TAG. Settings come from .env
+# (see prod.env.example). Every image is pinned: never deploy :latest.
+name: casewright
+
+services:
+  caddy:
+    image: caddy:2.11.7-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web]
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/${GHCR_OWNER:-chanchalvdev}/casewright-web:${IMAGE_TAG:?deploy.sh sets IMAGE_TAG}
+    environment:
+      API_UPSTREAM: http://api:8080
+    depends_on: [api]
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/${GHCR_OWNER:-chanchalvdev}/casewright-api:${IMAGE_TAG:?deploy.sh sets IMAGE_TAG}
+    env_file: .env
+    environment:
+      # Production classifies with the local model only: real logs never
+      # reach a cloud LLM (Gemini's free tier may use prompts for training).
+      LLM_PROVIDER: ollama
+      OLLAMA_URL: http://ollama:11434
+      POSTGRES_DSN: postgres://casewright:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/casewright?sslmode=disable
+      QDRANT_ADDR: qdrant:6334
+      ALLOWED_ORIGIN: https://${DOMAIN}
+      CASEWRIGHT_COOKIE_SECURE: "true"
+      # Live traces stay on this VM.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://phoenix:6006
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16.15-alpine
+    environment:
+      POSTGRES_USER: casewright
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: casewright
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U casewright"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 2g
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    volumes:
+      - qdrant_data:/qdrant/storage
+    mem_limit: 2g
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:0.40.10
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h   # keep the model loaded: a cold load adds seconds per call
+      OLLAMA_NUM_PARALLEL: "1" # 4 CPU cores: one generation at a time is fastest
+    volumes:
+      - ollama_data:/root/.ollama
+    mem_limit: 10g
+    restart: unless-stopped
+
+  phoenix:
+    image: arizephoenix/phoenix:version-20.26.0
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+    ports:
+      - "127.0.0.1:6006:6006"  # loopback only: reach it over an SSH tunnel
+    volumes:
+      - phoenix_data:/mnt/data
+    mem_limit: 2g
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  qdrant_data:
+  ollama_data:
+  phoenix_data:

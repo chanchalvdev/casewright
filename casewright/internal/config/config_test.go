@@ -1,0 +1,289 @@
+package config
+
+import (
+	"slices"
+	"strings"
+	"testing"
+	"time"
+)
+
+func clearLLMEnv(t *testing.T) {
+	t.Helper()
+	for _, k := range []string{
+		"LLM_PROVIDER", "GEMINI_API_KEY", "GEMINI_BASE_URL", "GEMINI_MODEL",
+		"KIMCHI_API_KEY", "KIMCHI_BASE_URL", "OPENAI_API_KEY", "CASEWRIGHT_MODEL",
+		"OLLAMA_URL", "OLLAMA_MODEL", "CASEWRIGHT_API_KEYS", "POSTGRES_DSN",
+		"SYSLOG_UDP_ADDR", "SYSLOG_TCP_ADDR", "DETECTION_MODE", "SIGMA_RULES_DIR",
+		"INCIDENT_WINDOW", "INCIDENT_MIN_SEVERITY", "PLAYBOOKS_DIR", "RESPONSE_WEBHOOK_URL", "SLACK_WEBHOOK_URL",
+		"CASEWRIGHT_ADMIN_USER", "CASEWRIGHT_ADMIN_PASSWORD", "CASEWRIGHT_SESSION_TTL", "CASEWRIGHT_COOKIE_SECURE",
+	} {
+		t.Setenv(k, "")
+	}
+	for _, old := range oldEnvNames {
+		t.Setenv(old, "")
+	}
+}
+
+func TestLoad_OldEnvNamesStillWork(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("SIEM_API_KEYS", "old-key")
+	t.Setenv("CASEWRIGHT_ADMIN_USER", "new-admin")
+	t.Setenv("SIEM_ADMIN_USER", "old-admin") // the new name wins
+
+	cfg := Load()
+	if len(cfg.APIKeys) != 1 || cfg.APIKeys[0] != "old-key" {
+		t.Errorf("APIKeys = %v, want [old-key] from SIEM_API_KEYS", cfg.APIKeys)
+	}
+	if cfg.AdminUser != "new-admin" {
+		t.Errorf("AdminUser = %q, want the CASEWRIGHT_ADMIN_USER value", cfg.AdminUser)
+	}
+	if len(cfg.DeprecatedEnv) != 1 || !strings.Contains(cfg.DeprecatedEnv[0], "SIEM_API_KEYS") {
+		t.Errorf("DeprecatedEnv = %v, want only SIEM_API_KEYS reported", cfg.DeprecatedEnv)
+	}
+}
+
+func TestLoad_NewEnvNamesReportNothing(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("CASEWRIGHT_API_KEYS", "k")
+	if cfg := Load(); len(cfg.DeprecatedEnv) != 0 {
+		t.Errorf("DeprecatedEnv = %v, want none", cfg.DeprecatedEnv)
+	}
+}
+
+func TestLoadGemini(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "g-key")
+	t.Setenv("KIMCHI_API_KEY", "k-key")
+
+	cfg := Load()
+	if cfg.Provider != ProviderGemini || cfg.APIKey != "g-key" {
+		t.Fatalf("want gemini/g-key, got %s/%s", cfg.Provider, cfg.APIKey)
+	}
+	if cfg.BaseURL != geminiBaseURL || cfg.ModelName != geminiModel {
+		t.Fatalf("unexpected gemini defaults: %s %s", cfg.BaseURL, cfg.ModelName)
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("valid gemini config rejected: %v", err)
+	}
+}
+
+func TestLoadGeminiModelOverride(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "g-key")
+	t.Setenv("GEMINI_MODEL", "gemini-3.8-pro")
+
+	if got := Load().ModelName; got != "gemini-3.8-pro" {
+		t.Fatalf("want model override, got %s", got)
+	}
+}
+
+func TestLoadGeminiIgnoresKimchiModel(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "g-key")
+	t.Setenv("CASEWRIGHT_MODEL", "kimi-k2.7")
+
+	if got := Load().ModelName; got != geminiModel {
+		t.Fatalf("CASEWRIGHT_MODEL leaked into gemini: got %s", got)
+	}
+}
+
+func TestLoadOpenAIModelOverride(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("KIMCHI_API_KEY", "k-key")
+	t.Setenv("CASEWRIGHT_MODEL", "kimi-k2.7")
+
+	if got := Load().ModelName; got != "kimi-k2.7" {
+		t.Fatalf("want openai model override, got %s", got)
+	}
+}
+
+func TestLoadOpenAIFallback(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("OPENAI_API_KEY", "o-key")
+
+	cfg := Load()
+	if cfg.Provider != ProviderOpenAI || cfg.APIKey != "o-key" {
+		t.Fatalf("want openai/o-key, got %s/%s", cfg.Provider, cfg.APIKey)
+	}
+	if cfg.BaseURL != openaiBaseURL || cfg.ModelName != openaiModel {
+		t.Fatalf("unexpected openai defaults: %s %s", cfg.BaseURL, cfg.ModelName)
+	}
+}
+
+func TestLoadKimchiAlias(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("LLM_PROVIDER", "Kimchi")
+	t.Setenv("GEMINI_API_KEY", "g-key")
+	t.Setenv("KIMCHI_API_KEY", "k-key")
+
+	cfg := Load()
+	if cfg.Provider != ProviderOpenAI || cfg.APIKey != "k-key" {
+		t.Fatalf("explicit kimchi should win over gemini key, got %s/%s", cfg.Provider, cfg.APIKey)
+	}
+}
+
+func TestLoadOllama(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("LLM_PROVIDER", "ollama")
+	t.Setenv("OLLAMA_URL", "http://ollama:11434/")
+	t.Setenv("GEMINI_API_KEY", "g-key")
+
+	cfg := Load()
+	if cfg.Provider != ProviderOllama || cfg.ModelName != ollamaModel {
+		t.Fatalf("want ollama/%s, got %s/%s", ollamaModel, cfg.Provider, cfg.ModelName)
+	}
+	if cfg.BaseURL != "http://ollama:11434/v1" || cfg.OllamaURL != "http://ollama:11434" {
+		t.Fatalf("unexpected ollama URLs: base=%s ollama=%s", cfg.BaseURL, cfg.OllamaURL)
+	}
+	if cfg.APIKey == "" {
+		t.Fatal("ollama needs a placeholder key for the OpenAI client")
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("ollama needs no key, got %v", err)
+	}
+}
+
+func TestValidate(t *testing.T) {
+	clearLLMEnv(t)
+	if err := Load().Validate(); err == nil {
+		t.Fatal("missing key should fail validation")
+	}
+
+	t.Setenv("LLM_PROVIDER", "gemini")
+	if err := Load().Validate(); err == nil {
+		t.Fatal("gemini without GEMINI_API_KEY should fail validation")
+	}
+
+	t.Setenv("LLM_PROVIDER", "claude-local")
+	if err := Load().Validate(); err == nil {
+		t.Fatal("unknown provider should fail validation")
+	}
+}
+
+func TestLoadPlatformSettings(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("CASEWRIGHT_API_KEYS", " key-a , ,key-b ")
+	t.Setenv("POSTGRES_DSN", "postgres://x")
+	t.Setenv("SYSLOG_UDP_ADDR", ":5514")
+	t.Setenv("DETECTION_MODE", " Enrich ")
+	t.Setenv("SIGMA_RULES_DIR", "/rules")
+
+	cfg := Load()
+	if !slices.Equal(cfg.APIKeys, []string{"key-a", "key-b"}) || !cfg.AuthEnabled() {
+		t.Fatalf("unexpected API keys: %q", cfg.APIKeys)
+	}
+	if cfg.DetectionMode != "enrich" || cfg.SigmaRulesDir != "/rules" {
+		t.Fatalf("unexpected detection settings: %+v", cfg)
+	}
+	if cfg.PostgresDSN != "postgres://x" || cfg.SyslogUDPAddr != ":5514" || cfg.SyslogTCPAddr != "" {
+		t.Fatalf("unexpected settings: %+v", cfg)
+	}
+
+	t.Setenv("CASEWRIGHT_API_KEYS", "")
+	if Load().AuthEnabled() {
+		t.Fatal("auth should be off without keys")
+	}
+}
+
+func TestIncidentSettings(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "k")
+	w, sev, err := Load().Incidents()
+	if err != nil || w != time.Hour || sev != "P3" {
+		t.Fatalf("defaults: %v %s %v", w, sev, err)
+	}
+	t.Setenv("INCIDENT_WINDOW", "30m")
+	t.Setenv("INCIDENT_MIN_SEVERITY", " p2 ")
+	w, sev, err = Load().Incidents()
+	if err != nil || w != 30*time.Minute || sev != "P2" {
+		t.Fatalf("overrides: %v %s %v", w, sev, err)
+	}
+	for k, v := range map[string]string{"INCIDENT_WINDOW": "10s", "INCIDENT_MIN_SEVERITY": "P0"} {
+		t.Run(k, func(t *testing.T) {
+			t.Setenv(k, v)
+			if err := Load().Validate(); err == nil || !strings.Contains(err.Error(), k) {
+				t.Fatalf("want %s error, got %v", k, err)
+			}
+		})
+	}
+}
+
+func TestResponseSettings(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "k")
+	t.Setenv("RESPONSE_WEBHOOK_URL", " https://automation.example/hook ")
+	t.Setenv("PLAYBOOKS_DIR", "/pb")
+	cfg := Load()
+	if cfg.ResponseWebhookURL != "https://automation.example/hook" || cfg.PlaybooksDir != "/pb" || cfg.Validate() != nil {
+		t.Fatalf("settings: %+v %v", cfg, cfg.Validate())
+	}
+	t.Setenv("SLACK_WEBHOOK_URL", "hooks.slack.com/services/SECRET")
+	err := Load().Validate()
+	if err == nil || !strings.Contains(err.Error(), "SLACK_WEBHOOK_URL") || strings.Contains(err.Error(), "SECRET") {
+		t.Fatalf("want a URL error without the secret, got %v", err)
+	}
+}
+
+func TestAccountSettings(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "k")
+	if ttl, err := Load().SessionTTL(); err != nil || ttl != 12*time.Hour {
+		t.Fatalf("default ttl: %v %v", ttl, err)
+	}
+	t.Setenv("CASEWRIGHT_SESSION_TTL", "8h")
+	t.Setenv("CASEWRIGHT_COOKIE_SECURE", "true")
+	t.Setenv("CASEWRIGHT_ADMIN_USER", "admin")
+	t.Setenv("CASEWRIGHT_ADMIN_PASSWORD", "a-long-password")
+	cfg := Load()
+	if ttl, _ := cfg.SessionTTL(); ttl != 8*time.Hour || !cfg.CookieSecure || cfg.Validate() != nil {
+		t.Fatalf("settings: %+v %v", cfg, cfg.Validate())
+	}
+	t.Setenv("CASEWRIGHT_ADMIN_PASSWORD", "")
+	if err := Load().Validate(); err == nil || !strings.Contains(err.Error(), "CASEWRIGHT_ADMIN_PASSWORD") {
+		t.Fatalf("half-set bootstrap: %v", err)
+	}
+	t.Setenv("CASEWRIGHT_ADMIN_USER", "")
+	t.Setenv("CASEWRIGHT_SESSION_TTL", "1m")
+	if err := Load().Validate(); err == nil || !strings.Contains(err.Error(), "CASEWRIGHT_SESSION_TTL") {
+		t.Fatalf("short ttl: %v", err)
+	}
+}
+
+func TestRetentionSettings(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("GEMINI_API_KEY", "k")
+	r, err := Load().Retention()
+	if err != nil || r != (Retention{}) {
+		t.Fatalf("default must keep everything: %+v %v", r, err)
+	}
+	t.Setenv("RETENTION_EVENTS_DAYS", " 30 ")
+	t.Setenv("RETENTION_INCIDENTS_DAYS", "365")
+	t.Setenv("RETENTION_AUDIT_DAYS", "0")
+	r, err = Load().Retention()
+	if err != nil || r.Events != 30*24*time.Hour || r.Incidents != 365*24*time.Hour || r.Audit != 0 {
+		t.Fatalf("overrides: %+v %v", r, err)
+	}
+	for _, v := range []string{"-1", "7d", "3651", "1.5"} {
+		t.Run(v, func(t *testing.T) {
+			t.Setenv("RETENTION_EVENTS_DAYS", v)
+			if err := Load().Validate(); err == nil || !strings.Contains(err.Error(), "RETENTION_EVENTS_DAYS") {
+				t.Fatalf("want RETENTION_EVENTS_DAYS error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestRulesOnlyProvider(t *testing.T) {
+	clearLLMEnv(t)
+	t.Setenv("LLM_PROVIDER", "none")
+	cfg := Load()
+	if cfg.Provider != ProviderNone || cfg.APIKey != "" || cfg.Validate() != nil {
+		t.Fatalf("none needs no key: %+v %v", cfg, cfg.Validate())
+	}
+	for _, mode := range []string{"off", "enrich"} {
+		t.Setenv("DETECTION_MODE", mode)
+		if err := Load().Validate(); err == nil || !strings.Contains(err.Error(), "rules-first") {
+			t.Fatalf("DETECTION_MODE=%s without an LLM: %v", mode, err)
+		}
+	}
+}

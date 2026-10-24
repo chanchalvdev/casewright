@@ -35,8 +35,8 @@ jobs:
       - uses: actions/setup-go@v5
         if: matrix.language == 'go'
         with:
-          go-version-file: siemagent/go.mod
-          cache-dependency-path: siemagent/go.sum
+          go-version-file: casewright/go.mod
+          cache-dependency-path: casewright/go.sum
       - uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
@@ -44,7 +44,7 @@ jobs:
           queries: security-extended
       - name: Build Go
         if: matrix.language == 'go'
-        working-directory: siemagent
+        working-directory: casewright
         run: go build ./...
       - uses: github/codeql-action/analyze@v3
         with:
@@ -57,10 +57,10 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
-          go-version-file: siemagent/go.mod
-          cache-dependency-path: siemagent/go.sum
+          go-version-file: casewright/go.mod
+          cache-dependency-path: casewright/go.sum
       - name: govulncheck
-        working-directory: siemagent
+        working-directory: casewright
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: siemagent/web
+        working-directory: casewright/web
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

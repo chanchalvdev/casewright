@@ -26,7 +26,7 @@ make docker-up      # Postgres, Qdrant, Ollama
 make dev            # backend :8080 + dashboard :5173
 ```
 
-Set an LLM in `siemagent/.env`: `GEMINI_API_KEY`, or `LLM_PROVIDER=ollama` to
+Set an LLM in `casewright/.env`: `GEMINI_API_KEY`, or `LLM_PROVIDER=ollama` to
 run fully locally without any key.
 
 ## Before you open a pull request
@@ -46,7 +46,7 @@ A pull request is ready when:
 
 - `make quality-gate` passes.
 - New behaviour has tests. Every Go package needs a `_test.go`; every React
-  component needs a test in `siemagent/web/src/__tests__/`.
+  component needs a test in `casewright/web/src/__tests__/`.
 - Go uses `log/slog` (no `fmt.Println` in production paths) and new Prometheus
   metrics live in `internal/metrics`.
 - Web server state goes through TanStack Query; no `console.log` in components.
@@ -56,10 +56,10 @@ A pull request is ready when:
 
 ### Database migrations
 
-The schema lives in `siemagent/internal/migrate/migrations/`, one numbered
+The schema lives in `casewright/internal/migrate/migrations/`, one numbered
 file per change (`0002_add_retention.sql`). To change it, add the next number;
 the server applies pending migrations on start (or run
-`siemagent --migrate`). A migration that has already been released must not
+`casewright --migrate`). A migration that has already been released must not
 be edited: start-up refuses a database whose recorded checksum no longer
 matches.
 

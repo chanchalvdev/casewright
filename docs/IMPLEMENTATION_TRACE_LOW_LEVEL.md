@@ -12,7 +12,7 @@
 
 | Where | What |
 |---|---|
-| `siemagent/cmd/siemagent/main.go:30` | `main()` — loads config, branches CLI vs server |
+| `casewright/cmd/casewright/main.go:30` | `main()` — loads config, branches CLI vs server |
 | `main.go:164` | `runCLI` — one-shot file classification, progress bar, summary table |
 | `main.go:81` | `runServer` — wires embedder, Qdrant, agent registry, WS hub, HTTP server |
 | `main.go:147` | `buildRegistry` — which agent tools are registered |
@@ -21,7 +21,7 @@
 
 ## Route table (the index for every request flow)
 
-`siemagent/internal/api/server.go:117-141`
+`casewright/internal/api/server.go:117-141`
 
 | Route | Handler | File |
 |---|---|---|
@@ -64,12 +64,12 @@
 
 - Query side: `handleSearch` (`handlers_phase2.go:105`) — embed query via
   `pkg/ollama/embeddings.go`, vector search via `pkg/qdrant/client.go`
-  (collection `siem_events`, dim 768), optional severity filter.
+  (collection `casewright_events`, dim 768), optional severity filter.
 - Index side: `classifier.indexEvent:160` (see Flow 1 step 3).
 
 ## Flow 4 — Agent (Phase 3)
 
-`siemagent/internal/agent/`
+`casewright/internal/agent/`
 
 | File | Key functions |
 |---|---|
@@ -117,7 +117,7 @@ Frontend:
 
 ## Cross-cutting
 
-- **Config**: `internal/config/config.go` — env → `Config`. Keys in `siemagent/.env`
+- **Config**: `internal/config/config.go` — env → `Config`. Keys in `casewright/.env`
   (never committed; `.env.example` has placeholders).
 - **Models**: `internal/models/models.go` — `LogEvent`, `LLMAnalysis`,
   `ClassifiedEvent`, severity enum. Read this early; every flow speaks these types.
@@ -130,8 +130,8 @@ Frontend:
 ```bash
 make dev                        # backend + Vite hot reload
 make seed                       # POST 10 sample events
-go test -race ./...             # backend contracts (run from siemagent/)
-npx vitest run                  # frontend contracts (run from siemagent/web/)
+go test -race ./...             # backend contracts (run from casewright/)
+npx vitest run                  # frontend contracts (run from casewright/web/)
 websocat ws://localhost:8080/ws/alerts   # watch the live stream raw
 ```
 
