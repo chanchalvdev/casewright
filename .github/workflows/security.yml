@@ -37,7 +37,7 @@ jobs:
         with:
           go-version-file: casewright/go.mod
           cache-dependency-path: casewright/go.sum
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -46,7 +46,7 @@ jobs:
         if: matrix.language == 'go'
         working-directory: casewright
         run: go build ./...
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}
 
