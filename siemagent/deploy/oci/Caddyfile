@@ -1,0 +1,16 @@
+# Public entry point. Caddy gets and renews a Let's Encrypt certificate for
+# DOMAIN; with no domain of your own, <ip-with-dashes>.sslip.io resolves to
+# the VM. The web container serves the dashboard and proxies /api, /ws,
+# /health and /docs to the API.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	reverse_proxy web:8080
+}

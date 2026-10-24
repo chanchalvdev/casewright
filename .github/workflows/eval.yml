@@ -1,0 +1,131 @@
+name: Eval
+
+# Scores the classifier on the hand-labeled eval set with the production model
+# (Ollama, llama3.2:3b) running inside the runner. Pull requests that touch the
+# classifier run the smoke subset and must pass evals/threshold.json; the full
+# dev set runs nightly. GitHub-hosted runners only: no self-hosted runner ever
+# executes pull-request code, and the gate itself needs no secret, so pull
+# requests from forks are gated too.
+on:
+  pull_request:
+    paths:
+      - siemagent/internal/classifier/**
+      - siemagent/internal/eval/**
+      - siemagent/cmd/eval/**
+      - siemagent/evals/**
+      - .github/workflows/eval.yml
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      subset:
+        description: smoke, full or holdout
+        default: full
+      prompt:
+        description: prompt version (empty = the classifier's default)
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OLLAMA_IMAGE: ollama/ollama:0.40.10
+  OLLAMA_MODEL: llama3.2:3b
+
+jobs:
+  eval:
+    name: Classifier eval (${{ github.event_name == 'pull_request' && 'smoke' || inputs.subset || 'full' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: siemagent
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the dataset exists
+        id: dataset
+        run: |
+          if [[ -s evals/dataset.jsonl ]]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::evals/dataset.jsonl is missing: label cases (see evals/README.md) to turn the eval gate on"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-go@v5
+        if: steps.dataset.outputs.present == 'true'
+        with:
+          go-version-file: siemagent/go.mod
+          cache-dependency-path: siemagent/go.sum
+
+      - name: Restore the Ollama model cache
+        if: steps.dataset.outputs.present == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama
+          key: ollama-${{ env.OLLAMA_MODEL }}-v1
+
+      - name: Start Ollama
+        if: steps.dataset.outputs.present == 'true'
+        run: |
+          mkdir -p ~/.ollama
+          docker run -d --name ollama -p 11434:11434 -v ~/.ollama:/root/.ollama \
+            -e OLLAMA_KEEP_ALIVE=2h "$OLLAMA_IMAGE"
+          for _ in $(seq 1 30); do curl -sf http://localhost:11434/api/tags >/dev/null && break; sleep 2; done
+          docker exec ollama ollama show "$OLLAMA_MODEL" >/dev/null 2>&1 \
+            || docker exec ollama ollama pull "$OLLAMA_MODEL" 2>&1 | tail -n 1
+          # The cache keeps whatever the tag pointed at when first pulled; the
+          # digest makes a model change visible in every run.
+          docker exec ollama ollama list | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Run the eval
+        if: steps.dataset.outputs.present == 'true'
+        env:
+          LLM_PROVIDER: ollama
+          OLLAMA_URL: http://localhost:11434
+          SUBSET: ${{ github.event_name == 'pull_request' && 'smoke' || inputs.subset || 'full' }}
+          PROMPT: ${{ inputs.prompt }}
+          # Optional: eval traces in Langfuse. Absent for forks; the gate still runs.
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_HOST: ${{ secrets.LANGFUSE_HOST }}
+        run: |
+          args=(-subset "$SUBSET" -seed 42 -timeout 3m -out evals/results)
+          [[ -n $PROMPT ]] && args+=(-prompt "$PROMPT")
+          if [[ -f evals/threshold.json ]]; then
+            args+=(-check evals/threshold.json)
+          else
+            echo "::warning::evals/threshold.json is missing: the run is reported but gates nothing"
+          fi
+          set +e
+          go run ./cmd/eval "${args[@]}" | tee eval-report.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### Classifier eval ($SUBSET)"
+            echo '```'
+            sed -n '1,/^Misses/p' eval-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      # Ollama wrote the model as root; the cache step saves it as the runner user.
+      - name: Make the model cache readable
+        if: always() && steps.dataset.outputs.present == 'true'
+        run: sudo chown -R "$(id -u):$(id -g)" ~/.ollama
+
+      - name: Upload the result
+        if: always() && steps.dataset.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-${{ github.run_id }}
+          path: |
+            siemagent/evals/results/*.json
+            siemagent/eval-report.txt
+          if-no-files-found: ignore
+          retention-days: 30
