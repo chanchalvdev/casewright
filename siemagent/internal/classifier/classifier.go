@@ -116,7 +116,9 @@ func (c *Classifier) Ping(ctx context.Context) error {
 		Messages: []openai.ChatCompletionMessage{
 			{Role: openai.ChatMessageRoleUser, Content: "ping"},
 		},
-		MaxTokens: 1,
+		// max_tokens, not max_completion_tokens: the OpenAI-compatible APIs of
+		// Ollama and Gemini accept it, and a rejected Ping fails /health/ready.
+		MaxTokens: 1, //nolint:staticcheck // deprecated in go-openai for o1 models only
 	})
 	return err
 }
