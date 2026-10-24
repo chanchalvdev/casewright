@@ -45,7 +45,7 @@ jobs:
       run:
         working-directory: siemagent
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check the dataset exists
         id: dataset
@@ -121,7 +121,7 @@ jobs:
 
       - name: Upload the result
         if: always() && steps.dataset.outputs.present == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: eval-${{ github.run_id }}
           path: |

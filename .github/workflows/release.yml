@@ -147,7 +147,7 @@ jobs:
       OCI_HOST: ${{ secrets.OCI_HOST }}
       DOMAIN: ${{ vars.OCI_DOMAIN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Configure SSH
         env:
           OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
