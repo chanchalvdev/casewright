@@ -68,7 +68,7 @@ jobs:
 
       - name: Restore the Ollama model cache
         if: steps.dataset.outputs.present == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.ollama
           key: ollama-${{ env.OLLAMA_MODEL }}-v1
