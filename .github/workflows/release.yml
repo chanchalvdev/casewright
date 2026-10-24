@@ -29,7 +29,7 @@ jobs:
       run:
         working-directory: siemagent
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
           go-version-file: siemagent/go.mod
@@ -45,7 +45,7 @@ jobs:
           go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o "dist/$name/siemagent" ./cmd/siemagent
           cp ../LICENSE ../README.md .env.example "dist/$name/"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: bin-${{ matrix.goos }}-${{ matrix.goarch }}
           path: siemagent/dist/*.tar.gz
@@ -68,10 +68,10 @@ jobs:
           - image: siemagent-web
             context: siemagent/web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -85,7 +85,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
       - id: push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           platforms: linux/amd64,linux/arm64
@@ -128,3 +128,51 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes --verify-tag $prerelease
+
+  # Runs only once the production environment is configured (see
+  # siemagent/deploy/oci/README.md) and waits for a required reviewer there.
+  # Pre-releases (v1.2.0-rc1) are built but not deployed.
+  deploy:
+    name: Deploy to Oracle Cloud
+    needs: images
+    if: ${{ vars.OCI_DOMAIN != '' && !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.OCI_DOMAIN }}
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      OCI_HOST: ${{ secrets.OCI_HOST }}
+      DOMAIN: ${{ vars.OCI_DOMAIN }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure SSH
+        env:
+          OCI_SSH_KEY: ${{ secrets.OCI_SSH_KEY }}
+          OCI_SSH_KNOWN_HOSTS: ${{ secrets.OCI_SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$OCI_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          # Pinned host key: never trust a key seen for the first time here.
+          printf '%s\n' "$OCI_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Copy the deploy files
+        run: |
+          cd siemagent/deploy/oci
+          scp -o StrictHostKeyChecking=yes docker-compose.yml Caddyfile deploy.sh prod.env.example \
+            "deploy@$OCI_HOST:casewright/"
+      - name: Deploy (rolls back on a failed health check)
+        run: ssh -o StrictHostKeyChecking=yes "deploy@$OCI_HOST" "cd casewright && ./deploy.sh '$GITHUB_REF_NAME'"
+      - name: Smoke test through the public URL
+        env:
+          OCI_API_KEY: ${{ secrets.OCI_API_KEY }}
+        run: |
+          curl -fsS -m 30 "https://$DOMAIN/health/ready"
+          echo
+          # One line no detection rule matches, so it exercises the LLM path.
+          body='{"log":"Oct 24 10:00:00 db01 app[22]: nightly report job finished in 42s"}'
+          curl -fsS -m 120 "https://$DOMAIN/api/classify" \
+            -H "X-API-Key: $OCI_API_KEY" -H 'Content-Type: application/json' -d "$body" \
+            | python3 -c 'import json,sys; e=json.load(sys.stdin); print(e["attack_type"], e["severity"], e.get("prompt_version")); assert e["attack_type"]'

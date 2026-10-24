@@ -1,4 +1,4 @@
-// Package agent implements the Phase 3 autonomous incident-response agent:
+// Package agent implements the autonomous incident-response agent:
 // a bounded tool-use loop over an OpenAI-compatible LLM.
 package agent
 

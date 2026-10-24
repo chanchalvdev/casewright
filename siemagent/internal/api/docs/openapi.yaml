@@ -1,6 +1,6 @@
 openapi: "3.0.3"
 info:
-  title: SIEMAgent API
+  title: Casewright API
   version: "1.0.0"
   description: |
     AI-powered Security Information and Event Management (SIEM) classifier.

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { SeverityBadge } from '../components/SeverityBadge'
 import type { Severity } from '../styles/tokens'
+import { BrandMark } from '../components/BrandMark'
 
 // Docs is the in-app user guide. It is intentionally self-contained (no data
 // fetching) so it renders instantly and works offline.
@@ -114,16 +115,14 @@ export function Docs() {
           {/* Hero */}
           <header className="border-b border-line pb-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
-                <Shield size={18} className="text-on-accent" />
-              </div>
+              <BrandMark size={36} />
               <div>
-                <h1 className="text-xl font-bold text-fg">SIEMAgent User Guide</h1>
+                <h1 className="text-xl font-bold text-fg">Casewright User Guide</h1>
                 <p className="text-xs text-fg-subtle">AI-powered security log classification & incident response</p>
               </div>
             </div>
             <p className="text-sm text-fg-muted leading-relaxed">
-              SIEMAgent reads raw security logs, uses a large language model to classify each event,
+              Casewright reads raw security logs, uses a large language model to classify each event,
               maps it to the MITRE ATT&CK framework, and — for critical events — automatically launches
               an AI agent that enriches the alert with threat intelligence and writes a response playbook.
             </p>
@@ -131,9 +130,9 @@ export function Docs() {
 
           {/* Overview */}
           <section className="space-y-3">
-            <H id="overview"><BookOpen size={18} className="text-accent-text" /> What SIEMAgent does</H>
+            <H id="overview"><BookOpen size={18} className="text-accent-text" /> What Casewright does</H>
             <Card>
-              Paste or upload a log line and SIEMAgent tells you, in seconds: <strong className="text-fg">what
+              Paste or upload a log line and Casewright tells you, in seconds: <strong className="text-fg">what
               kind of attack it is</strong>, <strong className="text-fg">how urgent it is</strong> (P1–P5),
               which <strong className="text-fg">MITRE ATT&CK</strong> tactic and technique it matches, the
               <strong className="text-fg"> indicators of compromise</strong> to block, and a
@@ -167,7 +166,7 @@ export function Docs() {
                 The event appears in the list on the left, and a detail panel slides in on the right with the full analysis.
               </Step>
               <Step n={4}>
-                Don't have a log handy? SIEMAgent accepts RFC 5424 / RFC 3164 syslog, JSON logs, or plain text — format
+                Don't have a log handy? Casewright accepts RFC 5424 / RFC 3164 syslog, JSON logs, or plain text — format
                 is auto-detected.
               </Step>
             </ol>
@@ -201,7 +200,7 @@ export function Docs() {
             <H id="upload"><Upload size={18} className="text-accent-text" /> Bulk upload a log file</H>
             <Card>
               Click <strong className="text-fg">Upload</strong> (top-left) or drag a <Code>.log</Code> /
-              <Code>.txt</Code> file onto the window. SIEMAgent parses every line and classifies them in parallel
+              <Code>.txt</Code> file onto the window. Casewright parses every line and classifies them in parallel
               through a worker pool — up to 500 lines per upload. Results stream into the event list as they complete,
               and the analytics panel updates live.
             </Card>
@@ -230,7 +229,7 @@ export function Docs() {
             <H id="incidents"><Radio size={18} className="text-accent-text" /> Live incident investigations</H>
             <Card>
               When an incident opens as (or escalates to) <SeverityBadge severity="P1" size="sm" /> or
-              {' '}<SeverityBadge severity="P2" size="sm" />, SIEMAgent automatically launches an autonomous agent, once per
+              {' '}<SeverityBadge severity="P2" size="sm" />, Casewright automatically launches an autonomous agent, once per
               incident. Its write-up is saved in the incident timeline.
               A banner appears at the top of the screen — click it to open the investigation.
             </Card>
@@ -331,7 +330,7 @@ export function Docs() {
           </section>
 
           <footer className="border-t border-line pt-4 text-xs text-fg-subtle">
-            SIEMAgent · AI Security Classifier — this guide is also available offline inside the app.
+            Casewright · AI security analyst. This guide is also available offline inside the app.
           </footer>
         </div>
       </div>

@@ -26,7 +26,7 @@ func (ic *instantClassifier) Classify(_ context.Context, ev models.LogEvent) (mo
 }
 
 func (ic *instantClassifier) ClassifyStream(_ context.Context, ev models.LogEvent, _ func(string)) (models.ClassifiedEvent, error) {
-	return ic.Classify(nil, ev) //nolint:staticcheck
+	return ic.Classify(context.Background(), ev)
 }
 
 func (ic *instantClassifier) Ping(_ context.Context) error { return nil }

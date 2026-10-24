@@ -6,6 +6,7 @@ import { getSOCMetrics } from '../lib/api'
 import type { DurationStats, SOCMetrics } from '../lib/api'
 import { formatDuration } from '../lib/time'
 import { useChartColors } from '../theme/chartColors'
+import { LoadingState } from '../components/Loading'
 
 const WINDOWS = [7, 30, 90]
 const CARD = 'rounded-xl border border-line bg-surface p-4 shadow-card'
@@ -250,7 +251,7 @@ export function Metrics() {
         </header>
 
         {isLoading ? (
-          <p className="text-sm text-fg-subtle">Loading metrics…</p>
+          <LoadingState label="Loading metrics…" />
         ) : isError || !m ? (
           <p className="text-sm text-danger">Could not load SOC metrics.</p>
         ) : (

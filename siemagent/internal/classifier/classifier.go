@@ -3,41 +3,26 @@ package classifier
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"regexp"
 	"strings"
 	"time"
 
 	openai "github.com/sashabaranov/go-openai"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/chverma/siemagent/internal/metrics"
 	"github.com/chverma/siemagent/internal/models"
 )
 
-const systemPrompt = `You are an expert security analyst and SIEM (Security Information and Event Management) system.
-
-Analyze the provided security log event and return a JSON object with EXACTLY these fields:
-
-{
-  "attack_type": "string — human-readable attack category (e.g. Brute Force, SQL Injection, Privilege Escalation, Port Scan, Malware Execution, Lateral Movement, Data Exfiltration, Phishing, DDoS, Credential Dumping, or 'Benign' if not an attack)",
-  "tactic": "string — MITRE ATT&CK tactic name (e.g. Initial Access, Execution, Persistence, Privilege Escalation, Defense Evasion, Credential Access, Discovery, Lateral Movement, Collection, Command and Control, Exfiltration, Impact) or 'N/A' if benign",
-  "technique_id": "string — MITRE ATT&CK technique ID (e.g. T1110.001) or 'N/A'",
-  "technique": "string — MITRE ATT&CK technique name (e.g. Brute Force: Password Guessing) or 'N/A'",
-  "severity": "string — one of: P1 (Critical), P2 (High), P3 (Medium), P4 (Low), P5 (Informational)",
-  "confidence": number — float 0.0-1.0 representing your confidence in this classification,
-  "iocs": ["array", "of", "strings"] — Indicators of Compromise extracted: IP addresses, domains, file hashes, usernames, file paths. Empty array if none.,
-  "remediation": "string — concrete, actionable remediation steps (2-3 sentences)",
-  "summary": "string — one-sentence human-readable summary of what happened"
-}
-
-Rules:
-- Respond with ONLY the JSON object, no markdown fences, no explanations.
-- IOCs must be concrete values extracted from the log (e.g. "192.168.1.100", "malware.exe", "root").
-- Severity guide: P1=active breach/ransomware/data exfil, P2=successful intrusion/priv esc, P3=failed attack attempt/anomaly, P4=policy violation/recon, P5=normal ops/noise.
-- If the log is benign (e.g. routine cron job, normal auth success), set attack_type="Benign", tactic="N/A", technique_id="N/A", severity="P5".`
-
 var jsonBlockRE = regexp.MustCompile(`(?s)\{.*\}`)
+
+// ErrInvalidOutput marks an LLM answer that is not decodable JSON, as opposed
+// to a transport failure such as a timeout.
+var ErrInvalidOutput = errors.New("invalid LLM output")
 
 // Interface allows mocking in tests.
 type Interface interface {
@@ -46,8 +31,8 @@ type Interface interface {
 	Ping(ctx context.Context) error
 }
 
-// Indexer is implemented by the Qdrant store; kept as an interface so Phase 1
-// tests that don't wire Qdrant still compile and pass.
+// Indexer is implemented by the Qdrant store; kept as an interface so tests
+// that do not wire Qdrant still compile and pass.
 type Indexer interface {
 	Upsert(ctx context.Context, id string, vector []float32, payload map[string]any) error
 }
@@ -58,10 +43,14 @@ type VectorEmbedder interface {
 }
 
 type Classifier struct {
-	client   *openai.Client
-	model    string
-	embedder VectorEmbedder // optional; nil = no indexing
-	indexer  Indexer        // optional; nil = no indexing
+	client        *openai.Client
+	model         string
+	prompt        string // system prompt; empty = DefaultPromptVersion
+	promptVersion string
+	seed          *int           // optional; set by evals for repeatable runs
+	streamUsage   bool           // ask for token counts in the stream (provider must support it)
+	embedder      VectorEmbedder // optional; nil = no indexing
+	indexer       Indexer        // optional; nil = no indexing
 }
 
 func New(apiKey, baseURL, model string) *Classifier {
@@ -73,14 +62,51 @@ func New(apiKey, baseURL, model string) *Classifier {
 	}
 }
 
+// UsePrompt switches to an embedded prompt version, failing on unknown ones.
+func (c *Classifier) UsePrompt(version string) error {
+	p, err := Prompt(version)
+	if err != nil {
+		return err
+	}
+	c.prompt, c.promptVersion = p, version
+	return nil
+}
+
+// PromptVersion reports which prompt version produces results.
+func (c *Classifier) PromptVersion() string {
+	if c.prompt == "" {
+		return DefaultPromptVersion
+	}
+	return c.promptVersion
+}
+
+// SetSeed asks the provider for repeatable sampling (supported by Ollama and
+// OpenAI). Used by evals; live classification leaves it unset.
+func (c *Classifier) SetSeed(seed int) { c.seed = &seed }
+
+// SetStreamUsage asks the provider to report token counts at the end of each
+// stream. Only enable it for providers known to accept stream_options.
+func (c *Classifier) SetStreamUsage(on bool) { c.streamUsage = on }
+
+func (c *Classifier) systemPrompt() string {
+	if c.prompt == "" {
+		p, err := Prompt(DefaultPromptVersion)
+		if err != nil {
+			panic(err) // the default prompt is embedded; a test guards it
+		}
+		return p
+	}
+	return c.prompt
+}
+
 // WithIndexing wires optional Qdrant embedding+indexing into the classifier.
 func (c *Classifier) WithIndexing(embedder VectorEmbedder, indexer Indexer) {
 	c.embedder = embedder
 	c.indexer = indexer
 }
 
-// OpenAIClient exposes the underlying LLM client so the Phase 3 agent can reuse
-// the same configured connection (DRY — one client, one endpoint).
+// OpenAIClient exposes the underlying LLM client so the agent can reuse
+// the same configured connection.
 func (c *Classifier) OpenAIClient() *openai.Client { return c.client }
 
 // Ping sends a minimal request to verify the LLM is reachable.
@@ -90,7 +116,9 @@ func (c *Classifier) Ping(ctx context.Context) error {
 		Messages: []openai.ChatCompletionMessage{
 			{Role: openai.ChatMessageRoleUser, Content: "ping"},
 		},
-		MaxTokens: 1,
+		// max_tokens, not max_completion_tokens: the OpenAI-compatible APIs of
+		// Ollama and Gemini accept it, and a rejected Ping fails /health/ready.
+		MaxTokens: 1, //nolint:staticcheck // deprecated in go-openai for o1 models only
 	})
 	return err
 }
@@ -101,19 +129,41 @@ func (c *Classifier) Classify(ctx context.Context, ev models.LogEvent) (models.C
 }
 
 // ClassifyStream streams the LLM response, calling onChunk for each text delta.
-// If onChunk is nil it is ignored.
+// If onChunk is nil it is ignored. Each call is one trace span.
 func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onChunk func(string)) (models.ClassifiedEvent, error) {
-	start := time.Now()
-	userMsg := buildUserMessage(ev)
+	ctx, span := tracer.Start(ctx, "chat "+c.model, trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
 
-	stream, err := c.client.CreateChatCompletionStream(ctx, openai.ChatCompletionRequest{
+	var call llmCall
+	call.input = buildUserMessage(ev)
+	result, err := c.classify(ctx, ev, &call, onChunk)
+	c.recordSpan(span, call, result, err)
+	return result, err
+}
+
+// llmCall is what one request sent and received, kept for the trace span.
+type llmCall struct {
+	input  string
+	output string
+	usage  *openai.Usage
+}
+
+func (c *Classifier) classify(ctx context.Context, ev models.LogEvent, call *llmCall, onChunk func(string)) (models.ClassifiedEvent, error) {
+	start := time.Now()
+	req := openai.ChatCompletionRequest{
 		Model: c.model,
 		Messages: []openai.ChatCompletionMessage{
-			{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
-			{Role: openai.ChatMessageRoleUser, Content: userMsg},
+			{Role: openai.ChatMessageRoleSystem, Content: c.systemPrompt()},
+			{Role: openai.ChatMessageRoleUser, Content: call.input},
 		},
 		Temperature: 0.1,
-	})
+		Seed:        c.seed,
+	}
+	if c.streamUsage {
+		req.StreamOptions = &openai.StreamOptions{IncludeUsage: true}
+	}
+
+	stream, err := c.client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
 		metrics.LLMStreamErrorsTotal.Inc()
 		return models.ClassifiedEvent{}, fmt.Errorf("stream open: %w", err)
@@ -123,8 +173,18 @@ func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onC
 	var sb strings.Builder
 	for {
 		chunk, err := stream.Recv()
-		if err != nil {
+		if errors.Is(err, io.EOF) {
 			break
+		}
+		if err != nil {
+			// A broken stream is a transport failure, not a bad answer:
+			// report it as such instead of failing to parse a partial reply.
+			metrics.LLMStreamErrorsTotal.Inc()
+			call.output = sb.String()
+			return models.ClassifiedEvent{}, fmt.Errorf("stream recv: %w", err)
+		}
+		if chunk.Usage != nil {
+			call.usage = chunk.Usage
 		}
 		if len(chunk.Choices) > 0 {
 			text := chunk.Choices[0].Delta.Content
@@ -139,15 +199,29 @@ func (c *Classifier) ClassifyStream(ctx context.Context, ev models.LogEvent, onC
 
 	elapsed := time.Since(start).Seconds()
 	metrics.ClassificationDurationSeconds.Observe(elapsed)
-
-	raw := sb.String()
-	analysis, err := unmarshalLLM(raw)
-	if err != nil {
-		return models.ClassifiedEvent{}, fmt.Errorf("parse LLM response: %w (raw: %.200s)", err, raw)
+	if u := call.usage; u != nil {
+		metrics.LLMTokensTotal.WithLabelValues("input").Add(float64(u.PromptTokens))
+		metrics.LLMTokensTotal.WithLabelValues("output").Add(float64(u.CompletionTokens))
 	}
 
-	result := buildClassifiedEvent(ev, analysis)
-	metrics.EventsClassifiedTotal.WithLabelValues(string(result.Severity), result.AttackType).Inc()
+	raw := sb.String()
+	call.output = raw
+	analysis, err := decodeLLM(raw)
+	if err != nil {
+		metrics.LLMInvalidOutputTotal.WithLabelValues(IssueParseError).Inc()
+		return models.ClassifiedEvent{}, fmt.Errorf("parse LLM response: %w: %w (raw: %.200s)", ErrInvalidOutput, err, raw)
+	}
+	// Validate before normalising: live traffic still gets a usable verdict,
+	// but the broken contract is counted and reported, never hidden.
+	issues := validate(analysis)
+	for _, issue := range issues {
+		metrics.LLMInvalidOutputTotal.WithLabelValues(issue).Inc()
+	}
+
+	result := buildClassifiedEvent(ev, normalise(analysis))
+	result.PromptVersion = c.PromptVersion()
+	result.OutputIssues = issues
+	metrics.EventsClassifiedTotal.WithLabelValues(string(result.Severity), metricLabel(result.AttackType)).Inc()
 
 	// Asynchronously embed and index into Qdrant — does not block the response.
 	if c.embedder != nil && c.indexer != nil {
@@ -220,7 +294,18 @@ func buildUserMessage(ev models.LogEvent) string {
 	return sb.String()
 }
 
+// unmarshalLLM decodes and normalises an LLM answer.
 func unmarshalLLM(raw string) (models.LLMAnalysis, error) {
+	a, err := decodeLLM(raw)
+	if err != nil {
+		return models.LLMAnalysis{}, err
+	}
+	return normalise(a), nil
+}
+
+// decodeLLM extracts the JSON object from an LLM answer without changing any
+// field, so validate sees exactly what the model returned.
+func decodeLLM(raw string) (models.LLMAnalysis, error) {
 	raw = strings.TrimSpace(raw)
 
 	// Strip markdown code fences
@@ -239,7 +324,15 @@ func unmarshalLLM(raw string) (models.LLMAnalysis, error) {
 	if err := json.Unmarshal([]byte(raw), &a); err != nil {
 		return models.LLMAnalysis{}, err
 	}
+	return a, nil
+}
 
+// normalise makes an answer safe to use: allowed labels get their canonical
+// spelling, and an unknown severity becomes P5.
+func normalise(a models.LLMAnalysis) models.LLMAnalysis {
+	if l, ok := ParseLabel(a.AttackType); ok {
+		a.AttackType = string(l)
+	}
 	a.Severity = strings.ToUpper(strings.TrimSpace(a.Severity))
 	switch a.Severity {
 	case "P1", "P2", "P3", "P4", "P5":
@@ -250,7 +343,7 @@ func unmarshalLLM(raw string) (models.LLMAnalysis, error) {
 	if a.IOCs == nil {
 		a.IOCs = []string{}
 	}
-	return a, nil
+	return a
 }
 
 func buildClassifiedEvent(ev models.LogEvent, a models.LLMAnalysis) models.ClassifiedEvent {

@@ -1,10 +1,10 @@
-# SIEM Agent — Server Startup Guide
+# Casewright — Server Startup Guide
 
 ## Prerequisites
 
 Make sure the following are installed before starting:
 
-- [Go 1.25+](https://go.dev/dl/)
+- [Go 1.26+](https://go.dev/dl/)
 - [Node.js 18+](https://nodejs.org/) (for the web frontend)
 - [Docker + Docker Compose](https://docs.docker.com/get-docker/) (for Qdrant, Postgres, Ollama)
 - A **Kimchi API key** (or OpenAI-compatible key)

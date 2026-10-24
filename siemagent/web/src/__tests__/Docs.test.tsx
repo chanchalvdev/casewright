@@ -10,7 +10,7 @@ beforeAll(() => {
 describe('Docs', () => {
   it('renders the user guide heading', () => {
     render(<Docs />)
-    expect(screen.getByText('SIEMAgent User Guide')).toBeInTheDocument()
+    expect(screen.getByText('Casewright User Guide')).toBeInTheDocument()
   })
 
   it('lists the severity reference rows', () => {

@@ -22,8 +22,6 @@ type Pinger interface {
 	Ping(ctx context.Context) error
 }
 
-// ─── Analytics ────────────────────────────────────────────────────────────────
-
 type AttackCount struct {
 	Count    int    `json:"count"`
 	Severity string `json:"severity"` // highest severity seen for this type

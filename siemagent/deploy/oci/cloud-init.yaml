@@ -1,0 +1,55 @@
+#cloud-config
+# Paste as "Cloud-init script" when creating the instance
+# (Ubuntu 24.04 aarch64, VM.Standard.A1.Flex). It installs Docker, creates the
+# `deploy` user that GitHub Actions logs in as, opens 80/443 in the OS
+# firewall and turns on automatic security updates.
+#
+# Replace the ssh-ed25519 line with the PUBLIC half of the deploy key you
+# store as the OCI_SSH_KEY GitHub secret.
+
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - unattended-upgrades
+
+users:
+  - default
+  - name: deploy
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAA...replace-with-the-deploy-public-key... casewright-deploy
+
+write_files:
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+  - path: /etc/ssh/sshd_config.d/10-casewright.conf
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin no
+
+runcmd:
+  # Docker Engine + compose plugin from Docker's apt repository.
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - usermod -aG docker deploy
+  - systemctl enable --now docker
+  # Oracle's Ubuntu images ship iptables rules that REJECT everything except
+  # SSH, even when the VCN security list allows the port. Accept 80/443
+  # (TCP, and UDP 443 for HTTP/3) ahead of the REJECT rule and persist.
+  - |
+    for rule in "-p tcp --dport 80" "-p tcp --dport 443" "-p udp --dport 443"; do
+      pos=$(iptables -L INPUT --line-numbers | awk '/REJECT/ {print $1; exit}')
+      iptables -I INPUT "${pos:-1}" -m state --state NEW $rule -j ACCEPT
+    done
+    netfilter-persistent save || iptables-save > /etc/iptables/rules.v4
+  - install -d -o deploy -g deploy -m 0750 /home/deploy/casewright
+  - systemctl restart ssh

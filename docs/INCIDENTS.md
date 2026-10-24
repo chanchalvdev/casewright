@@ -1,13 +1,13 @@
 # Incidents and case management
 
-Analysts work incidents, not log lines. SIEMAgent groups related alerts into
+Analysts work incidents, not log lines. Casewright groups related alerts into
 **incidents** automatically, and gives each one a case: status, owner,
 resolution, comments and a full history.
 
 ## How alerts become incidents
 
 Every classified event at or above `INCIDENT_MIN_SEVERITY` (default **P3**)
-is an alert. For each alert SIEMAgent extracts its **entities**:
+is an alert. For each alert Casewright extracts its **entities**:
 
 | Entity | From |
 |---|---|

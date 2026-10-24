@@ -8,6 +8,7 @@ import { formatDuration, timeAgo } from '../lib/time'
 import { SeverityBadge } from '../components/SeverityBadge'
 import { IncidentDetail } from '../components/IncidentDetail'
 import { SEVERITY_BORDER } from '../styles/tokens'
+import { LoadingState } from '../components/Loading'
 
 type View = 'open' | IncidentStatus | 'all'
 
@@ -127,7 +128,7 @@ export function Incidents() {
           </div>
 
           {isLoading ? (
-            <p className="text-sm text-fg-subtle">Loading incidents…</p>
+            <LoadingState label="Loading incidents…" />
           ) : isError ? (
             <p className="text-sm text-danger">Could not load incidents.</p>
           ) : visible.length === 0 ? (

@@ -18,7 +18,7 @@
 5. **Interfaces at boundaries** — anything that hits network or an LLM is behind
    a small interface so tests inject a mock (mirror `classifier.Interface`,
    `api.Searcher`, `api.Embedder`).
-6. **Standard idioms** — Go 1.25 stdlib first, `log/slog` for logs (never
+6. **Standard idioms** — Go 1.26 stdlib first, `log/slog` for logs (never
    `fmt.Println` in prod paths), `context.Context` as first arg, wrap errors
    with `fmt.Errorf("...: %w", err)`.
 7. **Every package ships a `_test.go`.** Network is mocked with

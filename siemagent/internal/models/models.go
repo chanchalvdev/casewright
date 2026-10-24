@@ -41,6 +41,11 @@ type ClassifiedEvent struct {
 	Remediation string    `json:"remediation"`
 	Summary     string    `json:"summary"`
 	ProcessedAt time.Time `json:"processed_at"`
+	// PromptVersion names the classifier prompt behind an LLM verdict.
+	PromptVersion string `json:"prompt_version,omitempty"`
+	// OutputIssues lists how the LLM answer broke the output contract (unknown
+	// label, bad severity, ...). Empty when the answer was valid.
+	OutputIssues []string `json:"output_issues,omitempty"`
 	// Detections lists the detection rules that matched the event.
 	Detections []Detection `json:"detections,omitempty"`
 	// ClassifiedBy records what produced the verdict: ClassifiedByRules,

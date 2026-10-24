@@ -5,6 +5,7 @@ import { listDetectionRules, setDetectionRuleEnabled } from '../lib/api'
 import type { DetectionRule } from '../lib/api'
 import { LEVEL_STYLES } from '../lib/levels'
 import { useAuth } from '../auth/auth'
+import { LoadingState } from '../components/Loading'
 
 const RULES_KEY = ['detection-rules']
 
@@ -145,7 +146,7 @@ export function Rules() {
         )}
 
         {isLoading ? (
-          <p className="text-sm text-fg-subtle">Loading rules…</p>
+          <LoadingState label="Loading rules…" />
         ) : isError ? (
           <p className="text-sm text-danger">Could not load detection rules.</p>
         ) : visible.length === 0 ? (

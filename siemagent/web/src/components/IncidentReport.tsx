@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Check, Copy, Download, X } from 'lucide-react'
 import { useState } from 'react'
 import { getIncidentReport } from '../lib/api'
+import { LoadingState } from './Loading'
 
 // IncidentReport previews the Markdown incident report with copy and download.
 export function IncidentReport({ id, onClose }: { id: string; onClose: () => void }) {
@@ -60,7 +61,7 @@ export function IncidentReport({ id, onClose }: { id: string; onClose: () => voi
         </header>
         <div className="max-h-[75vh] overflow-auto p-4">
           {isLoading ? (
-            <p className="text-sm text-fg-subtle">Building report…</p>
+            <LoadingState label="Building report…" />
           ) : isError ? (
             <p className="text-sm text-danger">Could not build the report.</p>
           ) : (

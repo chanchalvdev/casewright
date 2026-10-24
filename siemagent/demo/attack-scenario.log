@@ -1,4 +1,4 @@
-# Demo attack scenario for SIEMAgent: upload it with the dashboard's Upload button. See docs/TESTING.md.
+# Demo attack scenario for Casewright: upload it with the dashboard's Upload button. See docs/TESTING.md.
 # Story 1: SSH brute force on web01 -> successful login -> root shell (one incident, P2)
 Oct  3 10:00:00 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52000 ssh2
 Oct  3 10:00:01 web01 sshd[4721]: Failed password for root from 185.220.101.77 port 52001 ssh2

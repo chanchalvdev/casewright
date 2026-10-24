@@ -1,13 +1,18 @@
-# Go SIEM Agent — LLM Classifier — Harness Engineering Master Document
+# Casewright — Harness Engineering Master Document
 
 ## Project Overview
+
+Casewright (formerly Go SIEM Agent) is an open-source, local-first AI security
+analyst: alerts in, resolved cases out, confirmed cases turned into new rules.
+The code still uses the old name (`siemagent/` folder, Go module, binary,
+images, database) until a dedicated code-rename PR.
 
 A Go CLI + HTTP server that ingests syslog/JSON log events, classifies them via an
 OpenAI-compatible LLM (Kimchi/local Ollama), maps results to MITRE ATT&CK, and stores
 embeddings in Qdrant for semantic similarity search. Ships a React (Vite) dashboard.
 
 ```
-go-siem-agent-llm-classifier/
+casewright/
 ├── CLAUDE.md                        ← This file (harness bible)
 ├── Makefile                         ← Root task runner (delegates to siemagent/)
 ├── scripts/                         ← Harness automation
@@ -92,7 +97,7 @@ Web:  tsc -b        →  oxlint              →  vitest run          →  vite 
 
 ### Go (siemagent/)
 - Module: `github.com/chverma/siemagent`  
-- Go 1.25 — use `min()` built-in (available since 1.21), not a hand-rolled helper
+- Go 1.26 — use `min()` built-in (available since 1.21), not a hand-rolled helper
 - Logging: `log/slog` (stdlib) — not zerolog, not logrus
 - HTTP: `go-chi/chi/v5`
 - LLM client: `sashabaranov/go-openai` (OpenAI-compatible — works with Kimchi/Ollama)
@@ -203,7 +208,7 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | MIT license; platform roadmap in ROADMAP.md | Open-source release as an AI SOC platform, rules-first then AI |
 | 2026-10 | Trunk-based flow: `<type>/<name>` branches, PR title = branch name, protected `master` | See docs/BRANCHING.md; enforced by the PR checks workflow and git hooks |
 | 2026-10 | Releases from semver tags: binaries + GHCR images with provenance/SBOM | Reproducible, verifiable artifacts; CI reused as the release gate |
-| 2026-10 | Go toolchain pinned to the latest 1.25 patch | `go 1.25.0` alone builds with an unpatched standard library |
+| 2026-10 | Go toolchain pinned to the latest patch (`toolchain` line in go.mod) | `go X.Y.0` alone builds with an unpatched standard library |
 | 2026-10 | Sigma engine in-house (`internal/detection`), rules-first by default | Rule matches skip the LLM; LLM outage falls back to rule verdicts; no heavy Sigma dependency |
 | 2026-10 | Built-in rules carry `samples` replayed by tests | Detection-as-code: every rule change is tested against real parser output |
 | 2026-10 | Threshold rules use arrival time, capped group state | Log timestamps are forgeable; attacker-chosen group keys must not grow memory unbounded |
@@ -217,3 +222,11 @@ make seed                # POST 10 sample events to /classify
 | 2026-10 | IOC matching in-process (hash maps + per-prefix maps), feeds in memory | Constant-time lookups on every event with no extra service; a failed feed download keeps the last good list |
 | 2026-10 | MTTD from the log time of the opening alert, only when within 24h; MTTA on first assign/status change | Replays and forged timestamps must not distort metrics; a comment is not taking ownership |
 | 2026-10 | Normalised fields are an ECS subset in `LogEvent.Fields`, parser values first | One schema for rules, correlation and hunting; ECS names are what analysts and Sigma users already know |
+| 2026-10 | Product renamed Casewright; brand and docs first, code identifiers (`siemagent` module, binary, images, DB) in a later PR | It works cases after a SIEM fires, it is not a SIEM; "Casefile" was taken by an open-source SOC tracker. Code rename waits so open PRs are not broken |
+| 2026-10 | Phase 9 (SSO, multi-tenancy) built last; new tables carry a `tenant_id` from 11-01 on | Tenancy is invasive and has no second tenant yet; the column now avoids a retrofit later |
+| 2026-10-23 | Go 1.26 (toolchain go1.26.10) | govulncheck: 10 stdlib CVEs fixed only in 1.26.9+, and the fixed golang.org/x/net v0.60.0 requires Go 1.26 |
+| 2026-10-24 | Classifier evals: hand-labeled `evals/dataset.jsonl`, fixed 9-label set, invalid outputs counted not coerced, `threshold.json` gate | An LLM classifier has no training loop; a labeled set with adversarial cases is the only honest score, and silent coercion hid broken answers |
+| 2026-10-24 | Eval gate runs Ollama inside GitHub-hosted runners, not Gemini and not a self-hosted runner | Tests the production model for free; a self-hosted runner on a public repo would run fork PR code on the server |
+| 2026-10-24 | Tracing over plain OTLP: Phoenix on the VM for live traffic, Langfuse Cloud only for eval runs | Real logs stay on-host; one protocol keeps the backend a config choice |
+| 2026-10-24 | Production on one OCI Always Free A1 VM: Caddy is the only public service, `LLM_PROVIDER=ollama` forced, prompt follows `DefaultPromptVersion` | Free, and Gemini's free tier may use prompts for training; the gate-approved prompt is the one that ships |
+| 2026-10-24 | Classifier default prompt v1 → v2 (fixed label set with definitions); eval thresholds from v2 smoke minus ~2 cases | Independent comparison: accuracy 21% → 41%, invalid outputs 42% → 7%, p = 0.0015; injection and over-predicted Reconnaissance remain (evals/RESULTS.md) |

@@ -10,6 +10,7 @@ import type { Severity } from '../styles/tokens'
 import { SeverityBadge } from '../components/SeverityBadge'
 import { timeAgo } from '../lib/time'
 import { useAuth } from '../auth/auth'
+import { LoadingState } from '../components/Loading'
 
 const KEY = ['watchlists']
 const field =
@@ -149,7 +150,7 @@ function Indicators({ list, writable }: { list: Watchlist; writable: boolean }) 
         </form>
       )}
       {isLoading ? (
-        <p className="text-xs text-fg-subtle">Loading indicators…</p>
+        <LoadingState compact label="Loading indicators…" />
       ) : !data || data.total === 0 ? (
         <p className="text-xs text-fg-subtle">No indicators yet.</p>
       ) : (
@@ -289,7 +290,7 @@ export function Watchlists() {
         <Lookup />
 
         {isLoading ? (
-          <p className="text-sm text-fg-subtle">Loading watchlists…</p>
+          <LoadingState label="Loading watchlists…" />
         ) : isError ? (
           <p className="text-sm text-danger">Could not load watchlists.</p>
         ) : data.length === 0 ? (

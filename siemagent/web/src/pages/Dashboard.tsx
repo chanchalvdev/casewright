@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Shield, ShieldCheck, AlertTriangle, RefreshCw, Menu, X, BarChart2, Activity, ChevronDown, BookOpen, Siren, Workflow, Users as UsersIcon, ScrollText, LogOut, BellOff, Radar, Gauge } from 'lucide-react'
+import { ScanSearch, ShieldCheck, AlertTriangle, RefreshCw, Menu, X, BarChart2, ChevronDown, BookOpen, Siren, Workflow, Users as UsersIcon, ScrollText, LogOut, BellOff, Radar, Gauge } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { classifyLog, listEvents } from '../lib/api'
 import type { ClassifiedEvent } from '../lib/api'
@@ -26,6 +26,8 @@ import { useAuth } from '../auth/auth'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { DetectionList } from '../components/DetectionList'
 import { EventFields } from '../components/EventFields'
+import { Wordmark } from '../components/BrandMark'
+import { Spinner } from '../components/Loading'
 
 const ALL_SEVERITIES: Severity[] = ['P1', 'P2', 'P3', 'P4', 'P5']
 const EVENTS_KEY = 'classified-events'
@@ -156,15 +158,7 @@ export function Dashboard() {
       `}>
         {/* Logo */}
         <div className="px-5 py-5 border-b border-line flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shrink-0">
-              <Shield size={16} className="text-on-accent" />
-            </div>
-            <div>
-              <p className="font-semibold text-fg text-sm leading-tight">SIEMAgent</p>
-              <p className="text-[10px] text-fg-subtle leading-tight">AI Security Classifier</p>
-            </div>
-          </div>
+          <Wordmark tagline="AI security analyst" />
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-fg-subtle hover:text-fg-muted">
             <X size={18} />
           </button>
@@ -289,12 +283,12 @@ export function Dashboard() {
                 >
                   {classifying ? (
                     <>
-                      <Activity size={14} className="animate-pulse" />
+                      <Spinner size={14} />
                       <span className="hidden sm:inline">Classifying…</span>
                     </>
                   ) : (
                     <>
-                      <Shield size={14} />
+                      <ScanSearch size={14} aria-hidden="true" />
                       <span className="hidden sm:inline">Classify</span>
                     </>
                   )}
@@ -363,7 +357,7 @@ export function Dashboard() {
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-20 px-6">
                   <div className="w-16 h-16 rounded-2xl bg-fg/4 flex items-center justify-center mb-4">
-                    <Shield size={28} className="text-fg-subtle" />
+                    <ScanSearch size={28} className="text-fg-subtle" aria-hidden="true" />
                   </div>
                   <p className="text-sm text-fg-muted font-medium">No events yet</p>
                   <p className="text-xs text-fg-subtle mt-1 max-w-xs">

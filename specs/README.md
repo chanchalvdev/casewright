@@ -1,4 +1,4 @@
-# SIEMAgent — Phase 3 Specs (Agentic Incident Responder)
+# Casewright — Phase 3 Specs (Agentic Incident Responder)
 
 Phases 1 (Core Classifier) and 2 (RAG Pipeline) are **complete**. Phase 3 adds an
 autonomous tool-use agent that enriches high-severity events with threat intel,
@@ -10,12 +10,12 @@ generates an incident playbook, and streams the investigation live to the UI.
 
 | # | Spec | Layer | Status |
 |---|---|---|---|
-| 01 | [Tool system](phase3-01-tool-system.md) | backend | ✅ implemented |
-| 02 | [Threat-intel tools](phase3-02-threat-intel-tools.md) | backend | ✅ abuseipdb + otx + mitre + similar-events |
-| 03 | [Agent loop](phase3-03-agent-loop.md) | backend | ✅ implemented |
-| 04 | [WebSocket hub + auto-trigger](phase3-04-websocket-hub.md) | backend | ✅ implemented |
-| 05 | [Frontend live incident UI](phase3-05-frontend.md) | web | ✅ hook + ticker + incident + intel + heatmap |
-| 06 | [Hardening + E2E](phase3-06-hardening-e2e.md) | cross-cutting | ✅ log-sanitisation + Playwright E2E |
+| 01 | [Tool system](phase3-01-tool-system.md) | backend | implemented |
+| 02 | [Threat-intel tools](phase3-02-threat-intel-tools.md) | backend | abuseipdb + otx + mitre + similar-events |
+| 03 | [Agent loop](phase3-03-agent-loop.md) | backend | implemented |
+| 04 | [WebSocket hub + auto-trigger](phase3-04-websocket-hub.md) | backend | implemented |
+| 05 | [Frontend live incident UI](phase3-05-frontend.md) | web | hook + ticker + incident + intel + heatmap |
+| 06 | [Hardening + E2E](phase3-06-hardening-e2e.md) | cross-cutting | log-sanitisation + Playwright E2E |
 
 **Phase 3 is complete — every playbook feature is now implemented and tested.**
 Each spec is self-contained and follows the five-section contract
@@ -44,3 +44,28 @@ Each spec is self-contained and follows the five-section contract
 Nothing in 01–03 needs Docker or real API keys — all networked pieces are behind
 interfaces and covered by `httptest` mocks. 04 needs `gorilla/websocket`; 05 needs
 the web toolchain.
+
+---
+
+# Phase 11 — Security agent platform
+
+Phases 4–10 live in [`ROADMAP.md`](../ROADMAP.md). Phase 11 generalises the SOC
+pipeline into a multi-domain agent platform. The same rules from
+[`00-INSTRUCTIONS.md`](00-INSTRUCTIONS.md) apply.
+
+| # | Spec | Layer | Status |
+|---|---|---|---|
+| 00 | Evaluation harness | cross-cutting | **not yet written** — prerequisite for new agent roles |
+| 01 | [Finding and Entity model](phase11-01-finding-entity-model.md) | backend | specified |
+| 02 | [Agent runtime](phase11-02-agent-runtime.md) | backend | specified |
+
+```
+01 finding + entity ──┐
+                      ├──► domain packs (one spec each)
+02 agent runtime ─────┤
+                      │
+00 eval harness ──────┘   (gate: no new role or pack without an eval suite)
+```
+
+01 and 02 can be built in either order; 02 reads entity lookups from 01 once they
+exist. No domain pack should start before 00 and 02 have landed.
