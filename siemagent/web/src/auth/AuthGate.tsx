@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
-import { Shield } from 'lucide-react'
-import { SESSION_EXPIRED_EVENT, apiError, getMe, login, logout } from '../lib/api'
+import { RotateCw, ServerCrash } from 'lucide-react'
+import { SESSION_EXPIRED_EVENT, getMe, logout } from '../lib/api'
+import { BrandMark } from '../components/BrandMark'
+import { BootSplash, Spinner } from '../components/Loading'
+import { LoginPage } from './LoginPage'
 import { AuthContext } from './auth'
 import type { AuthContextValue, Permission } from './auth'
 
@@ -41,7 +44,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, [me.data, qc])
 
   if (me.isLoading) {
-    return <div className="flex h-screen items-center justify-center bg-canvas text-sm text-fg-subtle">Loading…</div>
+    return <BootSplash />
   }
   if (me.error && !isUnauthorized(me.error)) {
     return <ServerUnavailable error={me.error} onRetry={() => void me.refetch()} retrying={me.isFetching} />
@@ -49,7 +52,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   // A 401 always means "log in", even though the previous user's data is
   // still cached from before the session expired.
   if (isUnauthorized(me.error) || !value) {
-    return <LoginForm onSuccess={() => qc.invalidateQueries({ queryKey: ['me'] })} />
+    return <LoginPage onSuccess={() => qc.invalidateQueries({ queryKey: ['me'] })} />
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
@@ -71,7 +74,7 @@ function describe(err: unknown): { title: string; detail: string } {
     return { title: `The backend answered ${status}`, detail: 'Check the backend terminal for the error.' }
   }
   return {
-    title: 'Cannot reach the SIEMAgent backend',
+    title: 'Cannot reach the Casewright backend',
     detail:
       'The dashboard is up but the Go server on port 8080 is not answering. It may still be starting, or it stopped with an error: check the terminal running make dev (look for a line starting with "error:").',
   }
@@ -81,76 +84,40 @@ function ServerUnavailable({ error, onRetry, retrying }: { error: unknown; onRet
   const { title, detail } = describe(error)
   return (
     <main className="flex min-h-screen items-center justify-center bg-canvas p-4">
-      <section role="alert" aria-labelledby="down-title" className="w-full max-w-md space-y-3 rounded-xl border border-line bg-surface p-6 shadow-pop">
-        <h1 id="down-title" className="text-base font-semibold text-fg">{title}</h1>
-        <p className="text-sm text-fg-muted">{detail}</p>
-        <p className="text-xs text-fg-subtle">Retrying automatically every few seconds.</p>
-        <button
-          onClick={onRetry}
-          disabled={retrying}
-          className="rounded-lg border border-line-strong px-3 py-1.5 text-sm text-fg hover:bg-fg/4 disabled:opacity-40"
-        >
-          {retrying ? 'Checking…' : 'Retry now'}
-        </button>
-      </section>
-    </main>
-  )
-}
-
-function LoginForm({ onSuccess }: { onSuccess: () => void }) {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setBusy(true)
-    setFailure(null)
-    try {
-      await login(username, password)
-      setPassword('')
-      onSuccess()
-    } catch (err) {
-      setFailure(apiError(err))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const field =
-    'w-full rounded-lg border border-line-strong bg-surface-2 px-3 py-2 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-canvas p-4">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl border border-line bg-surface p-6 shadow-pop" aria-labelledby="login-title">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent">
-            <Shield size={18} className="text-on-accent" aria-hidden="true" />
+      <section role="alert" aria-labelledby="down-title" className="login-rise w-full max-w-md overflow-hidden rounded-2xl border border-line bg-surface shadow-pop">
+        <div className="flex items-center gap-3 border-b border-line bg-surface-2 px-6 py-4">
+          <BrandMark size={28} />
+          <p className="text-sm font-semibold tracking-tight text-fg">Casewright</p>
+        </div>
+        <div className="space-y-4 p-6">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning">
+              <ServerCrash size={20} aria-hidden="true" />
+            </span>
+            <div className="space-y-1">
+              <h1 id="down-title" className="text-base font-semibold text-fg">{title}</h1>
+              <p className="text-sm leading-relaxed text-fg-muted">{detail}</p>
+            </div>
           </div>
-          <div>
-            <h1 id="login-title" className="text-base font-semibold text-fg">Sign in to SIEMAgent</h1>
-            <p className="text-xs text-fg-subtle">AI security operations</p>
+          <div className="flex items-center justify-between gap-3 rounded-lg bg-fg/4 px-3 py-2.5">
+            <p className="flex items-center gap-2 text-xs text-fg-subtle">
+              <span className="relative flex h-2 w-2" aria-hidden="true">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-warning" />
+              </span>
+              Retrying automatically every few seconds.
+            </p>
+            <button
+              onClick={onRetry}
+              disabled={retrying}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-sm text-fg transition-colors hover:bg-fg/4 disabled:opacity-50"
+            >
+              {retrying ? <Spinner size={13} /> : <RotateCw size={13} aria-hidden="true" />}
+              {retrying ? 'Checking…' : 'Retry now'}
+            </button>
           </div>
         </div>
-        {failure && (
-          <p role="alert" className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">{failure}</p>
-        )}
-        <label className="block space-y-1 text-xs text-fg-muted">
-          Username
-          <input className={field} value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus required />
-        </label>
-        <label className="block space-y-1 text-xs text-fg-muted">
-          Password
-          <input className={field} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
-        </label>
-        <button
-          type="submit"
-          disabled={busy || !username || !password}
-          className="w-full rounded-lg bg-accent py-2 text-sm font-medium text-on-accent hover:bg-accent-strong disabled:opacity-40"
-        >
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
+      </section>
     </main>
   )
 }

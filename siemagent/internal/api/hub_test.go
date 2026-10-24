@@ -68,11 +68,15 @@ func TestHubDisconnectNoPanic(t *testing.T) {
 
 func TestHubSendTargeted(t *testing.T) {
 	hub, url := wsTestServer(t)
+	// The server registers a client after the handshake completes, so wait
+	// for the first registration before dialing again: otherwise the second
+	// connection can win the race and be assigned ID "1".
 	dial(t, url)
+	waitClients(t, hub, 1)
 	c2 := dial(t, url)
 	waitClients(t, hub, 2)
 
-	// Client IDs are assigned in dial order starting at "1".
+	// Client IDs are assigned in registration order starting at "1".
 	hub.Send("2", []byte("just-you"))
 	expectMessage(t, c2, "just-you")
 }

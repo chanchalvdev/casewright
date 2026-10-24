@@ -1,4 +1,7 @@
-# SIEMAgent — Complete Development Playbook
+# Casewright — Complete Development Playbook
+
+> Written when the project was called SIEMAgent; the prompts below keep that name
+> as a record of how it was built. The product is now Casewright.
 
 Step-by-step feature prompts for every phase.  
 Each prompt is ready to paste directly into Claude or your AI coding tool.
@@ -9,7 +12,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 
 | Layer | Technology | Port |
 |---|---|---|
-| Backend API | Go 1.25 + Chi v5 | 8080 |
+| Backend API | Go 1.26 + Chi v5 | 8080 |
 | LLM | Kimchi → kimi-k2.6 (OpenAI-compatible) | remote |
 | Vector DB | Qdrant | 6334 |
 | Embeddings | Ollama + nomic-embed-text | 11434 |
@@ -805,7 +808,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 **Prompt**
 > Write a multi-stage `Dockerfile` for the SIEMAgent project.
 > Stage 1 (`build-frontend`): use `node:22-alpine`, run `npm ci` and `npm run build` in `web/`.
-> Stage 2 (`build-backend`): use `golang:1.25-alpine`, copy `go.mod`/`go.sum` and run `go mod download`,
+> Stage 2 (`build-backend`): use `golang:1.26-alpine`, copy `go.mod`/`go.sum` and run `go mod download`,
 > then copy source and run `go build -ldflags="-s -w" -o /siemagent ./cmd/siemagent`.
 > The binary should embed the React build output via `//go:embed web/dist` and serve it from `GET /*`.
 > Stage 3 (`runtime`): use `gcr.io/distroless/static-debian12`, copy only the binary.

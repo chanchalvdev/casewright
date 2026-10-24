@@ -62,7 +62,7 @@ type Server struct {
 	search     Searcher          // nil when Qdrant not configured
 	embed      Embedder          // nil when Ollama not configured
 	hub        *Hub              // nil when live alert stream disabled
-	agent      *agentRuntime     // nil when Phase 3 agent disabled
+	agent      *agentRuntime     // nil when the agent is disabled
 	detections *detection.Engine // nil when detection rules are off
 	incidents  *incident.Service // nil when correlation is off
 	response   *response.Engine  // nil when playbooks are off
@@ -90,7 +90,7 @@ type agentRuntime struct {
 	running map[string]bool // incident IDs with an investigation in flight
 }
 
-// ServerOption lets callers attach optional Phase 2/3 components.
+// ServerOption lets callers attach optional components.
 type ServerOption func(*Server)
 
 // WithDetections exposes the loaded detection rules over the API.
@@ -247,7 +247,7 @@ func (s *Server) buildRouter() *chi.Mux {
 func (s *Server) HTTPServer() *http.Server { return s.http }
 
 func (s *Server) Start() error {
-	slog.Info("SIEMAgent HTTP server starting",
+	slog.Info("Casewright HTTP server starting",
 		"component", "api",
 		"addr", s.http.Addr,
 	)

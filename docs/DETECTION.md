@@ -1,6 +1,6 @@
 # Detection rules
 
-SIEMAgent evaluates [Sigma](https://github.com/SigmaHQ/sigma) rules against
+Casewright evaluates [Sigma](https://github.com/SigmaHQ/sigma) rules against
 every event before (or alongside) the LLM. Rules catch known-bad activity
 deterministically, instantly and for free; the LLM handles what no rule
 recognises.
@@ -43,7 +43,7 @@ are off. It needs no API key and sends nothing anywhere, which suits the demo,
 air-gapped sites and anyone evaluating the rules. It requires
 `DETECTION_MODE=rules-first` (the default).
 
-## Rules that ship with SIEMAgent
+## Rules that ship with Casewright
 
 The built-in pack lives in `siemagent/internal/detection/rules/` and is
 compiled into the binary. List what is loaded, with match counts:
@@ -89,7 +89,7 @@ level: high
   the detection with `count`, `group` (e.g. `src_ip=203.0.113.7`) and
   `threshold`. The group's counter then starts over, so a sustained attack
   produces one alert per threshold's worth of events, not one per event.
-- Windows are measured by when events arrive at SIEMAgent, not by the
+- Windows are measured by when events arrive at Casewright, not by the
   timestamp written in the log line, which an attacker can forge.
 - Events without the `by` or counted field are not counted.
 - Each rule tracks at most 10,000 groups; when full, idle groups are

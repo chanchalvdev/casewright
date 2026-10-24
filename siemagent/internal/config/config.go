@@ -32,6 +32,7 @@ type Config struct {
 	BaseURL       string // OpenAI-compatible endpoint
 	APIKey        string
 	ModelName     string
+	PromptVersion string // classifier prompt version; empty = classifier default
 	Workers       int
 	Port          string
 	QdrantAddr    string   // gRPC address for Qdrant (host:port)
@@ -95,6 +96,7 @@ func Load() Config {
 		SyslogUDPAddr: os.Getenv("SYSLOG_UDP_ADDR"),
 		SyslogTCPAddr: os.Getenv("SYSLOG_TCP_ADDR"),
 		DetectionMode: strings.ToLower(strings.TrimSpace(os.Getenv("DETECTION_MODE"))),
+		PromptVersion: strings.TrimSpace(os.Getenv("PROMPT_VERSION")),
 		SigmaRulesDir: os.Getenv("SIGMA_RULES_DIR"),
 
 		IncidentWindowRaw:      strings.TrimSpace(os.Getenv("INCIDENT_WINDOW")),
