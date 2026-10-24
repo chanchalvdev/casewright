@@ -16,10 +16,19 @@ var (
 
 	ClassificationDurationSeconds = promauto.NewHistogram(
 		prometheus.HistogramOpts{
-			Name:    "classification_duration_seconds",
-			Help:    "Duration of log event classification in seconds.",
-			Buckets: []float64{0.1, 0.5, 1, 2, 5, 10},
+			Name: "classification_duration_seconds",
+			Help: "Duration of log event classification in seconds.",
+			// Up to 60s: CPU-only Ollama takes 15-30s per call.
+			Buckets: []float64{0.1, 0.5, 1, 2, 5, 10, 15, 30, 60},
 		},
+	)
+
+	LLMTokensTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "llm_tokens_total",
+			Help: "LLM tokens used by classification, by direction (input, output). Only providers that report usage are counted.",
+		},
+		[]string{"direction"},
 	)
 
 	LLMInvalidOutputTotal = promauto.NewCounterVec(
