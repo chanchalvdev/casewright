@@ -160,7 +160,7 @@ alerts, history). Every change is in the incident timeline and the global
 
 ## One attack, end to end
 
-The file [`siemagent/demo/attack-scenario.log`](../siemagent/demo/attack-scenario.log)
+The file [`casewright/demo/attack-scenario.log`](../casewright/demo/attack-scenario.log)
 replays this story (see [TESTING.md](TESTING.md)):
 
 ```mermaid
@@ -190,13 +190,13 @@ sequenceDiagram
 | Store | Holds | Without it |
 |---|---|---|
 | PostgreSQL | events, rule states, incidents (+ entities, alerts, activity), response actions, users, sessions, audit log | everything in memory, lost on restart |
-| Qdrant | event embeddings (`siem_events`, 768-dim) | semantic search and the agent's similar-events tool are off |
+| Qdrant | event embeddings (`casewright_events`, 768-dim) | semantic search and the agent's similar-events tool are off |
 | Ollama | embeddings (`nomic-embed-text`); optional local chat LLM | no embeddings |
 
 The schema is versioned: numbered SQL migrations in
 `internal/migrate/migrations/` run once each, in a transaction, recorded in
 `schema_migrations` with a checksum. The server applies pending ones on start
-(an advisory lock serialises replicas); `siemagent --migrate` applies them as a
+(an advisory lock serialises replicas); `casewright --migrate` applies them as a
 separate deploy step. A database migrated by a newer release is refused rather
 than run by an older binary.
 

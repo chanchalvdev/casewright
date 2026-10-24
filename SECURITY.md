@@ -22,12 +22,12 @@ Only the latest `master` receives security fixes until versioned releases begin.
 
 ## Deploying safely
 
-- Create user accounts (`SIEM_ADMIN_USER` / `SIEM_ADMIN_PASSWORD`, then the
-  Users page) and/or set `SIEM_API_KEYS`. With neither, the API, WebSocket
+- Create user accounts (`CASEWRIGHT_ADMIN_USER` / `CASEWRIGHT_ADMIN_PASSWORD`, then the
+  Users page) and/or set `CASEWRIGHT_API_KEYS`. With neither, the API, WebSocket
   and metrics are open to anyone who can reach the server.
-- Serve the dashboard over HTTPS and set `SIEM_COOKIE_SECURE=true` so the
+- Serve the dashboard over HTTPS and set `CASEWRIGHT_COOKIE_SECURE=true` so the
   session cookie is never sent in clear text.
-- Prefer user logins over `VITE_SIEM_API_KEY` for people: that key is compiled
+- Prefer user logins over `VITE_CASEWRIGHT_API_KEY` for people: that key is compiled
   into the dashboard bundle, is visible to every dashboard user and acts as an
   admin. Keep API keys for scripts and integrations.
 - Give people the least role they need (viewer, analyst, admin) and review

@@ -27,11 +27,11 @@ dist-ssr
 .env
 
 # Go build output
-siemagent/bin/
-siemagent/siemagent
+casewright/bin/
+casewright/casewright
 
 # Demo scenarios are documentation, not runtime logs
-!siemagent/demo/*.log
+!casewright/demo/*.log
 
 # Personal learning notes and plans (not part of the project)
 learning/

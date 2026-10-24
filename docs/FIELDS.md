@@ -96,7 +96,7 @@ fields when present.
 
 ## Adding a format
 
-Add an extractor in `siemagent/internal/normalize/normalize.go`, or set
+Add an extractor in `casewright/internal/normalize/normalize.go`, or set
 `Fields` in a new parser, then add a case to `normalize_test.go`. A test fails
 if any field set is missing from `Schema`, so the schema stays the one
 reference.

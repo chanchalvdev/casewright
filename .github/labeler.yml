@@ -2,33 +2,33 @@
 "area: backend":
   - changed-files:
       - any-glob-to-any-file:
-          - siemagent/cmd/**
-          - siemagent/internal/**
-          - siemagent/pkg/**
-          - siemagent/go.mod
+          - casewright/cmd/**
+          - casewright/internal/**
+          - casewright/pkg/**
+          - casewright/go.mod
 "area: frontend":
   - changed-files:
-      - any-glob-to-any-file: siemagent/web/**
+      - any-glob-to-any-file: casewright/web/**
 "area: detection":
   - changed-files:
       - any-glob-to-any-file:
-          - siemagent/internal/detection/**
-          - siemagent/rules/**
+          - casewright/internal/detection/**
+          - casewright/rules/**
 "area: ingestion":
   - changed-files:
       - any-glob-to-any-file:
-          - siemagent/internal/ingest/**
-          - siemagent/internal/parser/**
+          - casewright/internal/ingest/**
+          - casewright/internal/parser/**
 "area: ai":
   - changed-files:
       - any-glob-to-any-file:
-          - siemagent/internal/classifier/**
-          - siemagent/internal/agent/**
+          - casewright/internal/classifier/**
+          - casewright/internal/agent/**
 "area: storage":
   - changed-files:
       - any-glob-to-any-file:
-          - siemagent/internal/store/**
-          - siemagent/pkg/qdrant/**
+          - casewright/internal/store/**
+          - casewright/pkg/qdrant/**
 "area: ci":
   - changed-files:
       - any-glob-to-any-file:
@@ -44,5 +44,5 @@
 "area: deps":
   - changed-files:
       - any-glob-to-any-file:
-          - siemagent/go.sum
-          - siemagent/web/package-lock.json
+          - casewright/go.sum
+          - casewright/web/package-lock.json

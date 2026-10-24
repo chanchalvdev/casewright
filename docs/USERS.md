@@ -19,7 +19,7 @@ role can't do; for example, viewers see incidents read-only.
 | Caller | Credential | Identity in history and audit |
 |---|---|---|
 | A person in the dashboard | Username and password → session cookie | their username |
-| A script or integration | API key (`SIEM_API_KEYS`) | `api-key-N` (its position in `SIEM_API_KEYS`), acts as admin |
+| A script or integration | API key (`CASEWRIGHT_API_KEYS`) | `api-key-N` (its position in `CASEWRIGHT_API_KEYS`), acts as admin |
 | Nobody configured | none: **open mode**, everything allowed | `analyst` |
 
 Open mode only applies when there are **no API keys and no user accounts**.
@@ -27,11 +27,11 @@ It exists for local development; the server logs a warning at start.
 
 ## First admin
 
-Set these in `siemagent/.env` and start the server once:
+Set these in `casewright/.env` and start the server once:
 
 ```env
-SIEM_ADMIN_USER=admin
-SIEM_ADMIN_PASSWORD=<12+ characters>
+CASEWRIGHT_ADMIN_USER=admin
+CASEWRIGHT_ADMIN_PASSWORD=<12+ characters>
 ```
 
 The admin is created only if no user exists yet, so the variables are
@@ -63,8 +63,8 @@ lock itself out. Users change their own password with
   login endpoint is also rate-limited per IP.
 - **Sessions** are 256-bit random tokens. The database stores only their
   SHA-256 hash. The cookie is `HttpOnly` and `SameSite=Strict`, and `Secure`
-  over HTTPS or with `SIEM_COOKIE_SECURE=true` (set it behind a TLS proxy).
-  Sessions last `SIEM_SESSION_TTL` (default 12h).
+  over HTTPS or with `CASEWRIGHT_COOKIE_SECURE=true` (set it behind a TLS proxy).
+  Sessions last `CASEWRIGHT_SESSION_TTL` (default 12h).
 - **CSRF**: state-changing requests authenticated by the cookie must send
   `X-Requested-With`. Other sites can't add that header without a CORS
   preflight, which only `ALLOWED_ORIGIN` passes. The dashboard sends it
@@ -103,10 +103,10 @@ each incident's timeline as well. The audit log is stored in Postgres
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SIEM_ADMIN_USER` / `SIEM_ADMIN_PASSWORD` | — | Bootstrap the first admin (both or neither) |
-| `SIEM_SESSION_TTL` | `12h` | Login lifetime (5m–720h) |
-| `SIEM_COOKIE_SECURE` | `false` | Mark the session cookie `Secure` |
-| `SIEM_API_KEYS` | — | Machine access (admin) |
+| `CASEWRIGHT_ADMIN_USER` / `CASEWRIGHT_ADMIN_PASSWORD` | — | Bootstrap the first admin (both or neither) |
+| `CASEWRIGHT_SESSION_TTL` | `12h` | Login lifetime (5m–720h) |
+| `CASEWRIGHT_COOKIE_SECURE` | `false` | Mark the session cookie `Secure` |
+| `CASEWRIGHT_API_KEYS` | — | Machine access (admin) |
 
 ## Not yet
 

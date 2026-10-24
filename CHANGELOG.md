@@ -9,6 +9,20 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- **Code renamed from `siemagent` to `casewright`.** The folder, Go module
+  (`github.com/chanchalvdev/casewright/casewright`), binary, container images
+  (`ghcr.io/chanchalvdev/casewright-api`, `casewright-web`), Postgres user and
+  database, session cookie and Qdrant collection now use the new name.
+  Upgrading:
+  - Rename `SIEM_API_KEYS`, `SIEM_ADMIN_USER`, `SIEM_ADMIN_PASSWORD`,
+    `SIEM_SESSION_TTL`, `SIEM_COOKIE_SECURE` and `SIEM_MODEL` to
+    `CASEWRIGHT_*` (and `VITE_SIEM_API_KEY` to `VITE_CASEWRIGHT_API_KEY`).
+    The old names still work and log a warning.
+  - The dev compose project is now `casewright`, so `docker compose up`
+    starts with fresh volumes; remove the old ones with
+    `docker volume ls -q | grep '^siemagent_' | xargs docker volume rm`.
+  - Everyone signs in again (new cookie name), and similar-event search
+    starts empty and refills from new events (new collection name).
 - The project is now called **Casewright** (previously Go SIEM Agent). The
   dashboard, API docs, reports, start-up log line and documentation use the
   new name, and the repository moved to `chanchalvdev/casewright` (old URLs

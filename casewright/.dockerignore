@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+bin/
+casewright
+web/
+*.log
+test-logs.txt
