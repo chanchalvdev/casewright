@@ -4,7 +4,7 @@ A hand-labeled set of log lines that scores the LLM classifier, so every
 prompt or model change produces a number instead of an impression.
 
 ```bash
-make eval                                   # v1 prompt, smoke subset, provider from .env
+make eval                                   # default prompt, smoke subset, provider from .env
 make eval PROMPT=v2 SUBSET=full
 make eval PROMPT=v2 SUBSET=smoke EVAL_FLAGS="-check evals/threshold.json"
 LLM_PROVIDER=gemini make eval EVAL_FLAGS="-rpm 5"   # free tier: throttle

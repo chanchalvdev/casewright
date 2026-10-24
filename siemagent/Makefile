@@ -39,7 +39,7 @@ help:
 	@echo "    make lint           Run golangci-lint (install if missing)"
 	@echo ""
 	@echo "  Evals"
-	@echo "    make eval           Score the classifier: PROMPT=v1 SUBSET=smoke|full|holdout"
+	@echo "    make eval           Score the classifier: [PROMPT=vN] SUBSET=smoke|full|holdout"
 	@echo "                        (EVAL_FLAGS=\"-check evals/threshold.json -rpm 5\")"
 	@echo "    make eval-check     Validate evals/dataset.jsonl and show its balance"
 	@echo ""
@@ -102,7 +102,7 @@ lint:
 
 # ── Evals ─────────────────────────────────────────────────────────────────────
 
-PROMPT ?= v1
+PROMPT ?=
 SUBSET ?= smoke
 EVAL_FLAGS ?=
 
@@ -110,7 +110,7 @@ EVAL_FLAGS ?=
 # Gemini's free tier may use prompts to improve Google products: only send it
 # the synthetic eval dataset, never real logs.
 eval:
-	@$(LOAD_ENV) go run ./cmd/eval -prompt $(PROMPT) -subset $(SUBSET) $(EVAL_FLAGS)
+	@$(LOAD_ENV) go run ./cmd/eval $(if $(PROMPT),-prompt $(PROMPT)) -subset $(SUBSET) $(EVAL_FLAGS)
 
 # Check evals/dataset.jsonl and show its balance; no LLM needed.
 eval-check:
