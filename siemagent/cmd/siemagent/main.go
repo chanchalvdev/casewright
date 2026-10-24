@@ -75,8 +75,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("LLM provider configured", "component", "main", "version", version, "provider", cfg.Provider, "model", cfg.ModelName)
 	cls := classifier.New(cfg.APIKey, cfg.BaseURL, cfg.ModelName)
+	if cfg.PromptVersion != "" {
+		if err := cls.UsePrompt(cfg.PromptVersion); err != nil {
+			fmt.Fprintf(os.Stderr, "error: PROMPT_VERSION: %v\n", err)
+			os.Exit(1)
+		}
+	}
+	slog.Info("LLM provider configured", "component", "main", "version", version, "provider", cfg.Provider, "model", cfg.ModelName, "prompt_version", cls.PromptVersion())
 	detCls, engine := buildDetection(cfg, cls)
 
 	if *serve {
