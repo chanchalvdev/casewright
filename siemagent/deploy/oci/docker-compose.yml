@@ -25,14 +25,14 @@ services:
     restart: unless-stopped
 
   web:
-    image: ghcr.io/${GHCR_OWNER:-chanchals7}/siemagent-web:${IMAGE_TAG:?deploy.sh sets IMAGE_TAG}
+    image: ghcr.io/${GHCR_OWNER:-chanchalvdev}/siemagent-web:${IMAGE_TAG:?deploy.sh sets IMAGE_TAG}
     environment:
       API_UPSTREAM: http://api:8080
     depends_on: [api]
     restart: unless-stopped
 
   api:
-    image: ghcr.io/${GHCR_OWNER:-chanchals7}/siemagent-api:${IMAGE_TAG:?deploy.sh sets IMAGE_TAG}
+    image: ghcr.io/${GHCR_OWNER:-chanchalvdev}/siemagent-api:${IMAGE_TAG:?deploy.sh sets IMAGE_TAG}
     env_file: .env
     environment:
       # Production classifies with the local model only: real logs never
