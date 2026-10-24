@@ -13,6 +13,9 @@ on:
       - siemagent/internal/eval/**
       - siemagent/cmd/eval/**
       - siemagent/evals/**
+      # Dependency updates can swap the LLM client (go-openai) under the classifier.
+      - siemagent/go.mod
+      - siemagent/go.sum
       - .github/workflows/eval.yml
   schedule:
     - cron: "0 2 * * *"
