@@ -57,7 +57,7 @@ feeds `GET /api/analytics/summary`.
 
 ### Flow 3 — Semantic search
 Indexing side: after each classification, event text is embedded (nomic-embed-text,
-768-dim, via Ollama) and upserted into Qdrant collection `siem_events`.
+768-dim, via Ollama) and upserted into Qdrant collection `casewright_events`.
 Query side: `GET /api/search` embeds the query and does vector search, optional
 severity filter.
 
@@ -88,7 +88,7 @@ overlay page.
 |---|---|---|
 | Kimchi / OpenAI-compatible LLM | Classification + agent reasoning | `.env` keys |
 | Ollama (`nomic-embed-text`) | 768-dim embeddings | `make docker-up` |
-| Qdrant | Vector store, collection `siem_events` | `make docker-up` |
+| Qdrant | Vector store, collection `casewright_events` | `make docker-up` |
 | AbuseIPDB / OTX | Agent threat-intel tools | API keys optional |
 
 ## Phase history
@@ -103,7 +103,7 @@ overlay page.
 
 1. Read this file top to bottom (15 min).
 2. Trace Flow 1 statically using the low-level doc (1 hr).
-3. Run it live: `make dev`, drop a line from `siemagent/sample.log`, watch the
+3. Run it live: `make dev`, drop a line from `casewright/sample.log`, watch the
    Network tab + backend `slog` output (30 min).
 4. Trace Flows 2–5, one per sitting, checking the boxes above.
 5. Read the tests for each unit last — they document the contracts.

@@ -1,6 +1,6 @@
 # Casewright — Complete Development Playbook
 
-> Written when the project was called SIEMAgent; the prompts below keep that name
+> Written when the project was called Casewright; the prompts below keep that name
 > as a record of how it was built. The product is now Casewright.
 
 Step-by-step feature prompts for every phase.  
@@ -25,14 +25,14 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ## Development Environment Setup
 
 **Prompt — Initial environment setup**
-> I have the SIEMAgent Go project scaffolded at `./siemagent` with module name `siemagent`.
+> I have the Casewright Go project scaffolded at `./casewright` with module name `casewright`.
 > Write a `docker-compose.yml` that starts Qdrant (port 6333/6334), PostgreSQL 16 (port 5432),
 > and Ollama (port 11434) with a named volume for each. Include a `healthcheck` for each service.
 > Also write a `scripts/pull-models.sh` bash script that calls `ollama pull nomic-embed-text`
 > and `ollama pull llama3.2` after the Ollama container is healthy.
 
 **Prompt — Makefile targets**
-> Extend the existing `Makefile` in the SIEMAgent project with these targets:
+> Extend the existing `Makefile` in the Casewright project with these targets:
 > `make setup` (copies .env.example → .env, runs go mod download, npm install in web/),
 > `make dev` (runs Go server with live-reload via `air` and Vite dev server in parallel),
 > `make docker-up` / `make docker-down` (docker compose),
@@ -56,7 +56,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Graceful shutdown
 
 **Prompt**
-> In `cmd/siemagent/main.go` in the SIEMAgent Go project, add graceful shutdown to the HTTP server.
+> In `cmd/casewright/main.go` in the Casewright Go project, add graceful shutdown to the HTTP server.
 > Use `os/signal` to listen for SIGINT and SIGTERM. When a signal is received, call
 > `srv.Shutdown(ctx)` with a 15-second timeout context. Log "shutting down" before and
 > "shutdown complete" after. The server is created with `&http.Server{Addr: addr, Handler: srv}`.
@@ -89,7 +89,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Health check with LLM probe
 
 **Prompt**
-> Create `internal/api/health.go` in the SIEMAgent project.
+> Create `internal/api/health.go` in the Casewright project.
 > The `GET /health` handler should return `{"status":"ok"}` with HTTP 200 in under 5ms.
 > Add a second endpoint `GET /health/ready` that:
 > (1) sends a minimal 1-token chat completion to the Kimchi endpoint using the classifier's
@@ -103,7 +103,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Prometheus metrics
 
 **Prompt**
-> Add Prometheus metrics to the SIEMAgent Go API. Install `github.com/prometheus/client_golang`.
+> Add Prometheus metrics to the Casewright Go API. Install `github.com/prometheus/client_golang`.
 > Create `internal/metrics/metrics.go` that defines:
 > `events_classified_total` counter (labels: severity, attack_type),
 > `classification_duration_seconds` histogram (buckets: 0.1, 0.5, 1, 2, 5, 10),
@@ -116,7 +116,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: CLI progress display
 
 **Prompt**
-> In `cmd/siemagent/main.go`, improve the CLI mode (when reading a log file).
+> In `cmd/casewright/main.go`, improve the CLI mode (when reading a log file).
 > After parsing, print a summary line: `Parsed N events (K syslog, J json, M errors)`.
 > During classification, show a real-time progress bar using only the standard library:
 > print `\r[■■■■□□□□] 4/10 classified — latest: P2 brute_force` updating in place on each result.
@@ -128,7 +128,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: /classify streaming response (SSE)
 
 **Prompt**
-> Add a `POST /classify/stream` endpoint to the SIEMAgent Chi server that returns a
+> Add a `POST /classify/stream` endpoint to the Casewright Chi server that returns a
 > Server-Sent Events stream instead of waiting for the full classification.
 > As each chunk arrives from the Kimchi streaming response, forward it to the HTTP response
 > as `data: {"chunk":"..."}` SSE events. When the full JSON is assembled and parsed,
@@ -144,7 +144,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: React + TypeScript + Vite scaffold
 
 **Prompt**
-> Create a `web/` directory inside the SIEMAgent project root.
+> Create a `web/` directory inside the Casewright project root.
 > Scaffold a React 18 + TypeScript + Vite project inside it using `npm create vite@latest`.
 > Install and configure: Tailwind CSS v3, `@tanstack/react-query` v5, `axios`,
 > `react-router-dom` v6, `lucide-react`, and `recharts`.
@@ -156,7 +156,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: API client
 
 **Prompt**
-> Create `web/src/lib/api.ts` in the SIEMAgent frontend.
+> Create `web/src/lib/api.ts` in the Casewright frontend.
 > Define TypeScript interfaces that exactly mirror the Go structs:
 > `LogEvent`, `Classification` (with Severity type `"P1"|"P2"|"P3"|"P4"|"P5"`), `ClassifiedEvent`.
 > Create an axios instance with `baseURL: "/api"` and a 30-second timeout.
@@ -173,7 +173,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Design tokens and theme
 
 **Prompt**
-> Create `web/src/styles/tokens.ts` in the SIEMAgent frontend.
+> Create `web/src/styles/tokens.ts` in the Casewright frontend.
 > Define a severity colour map: P1=#DC2626 (red-600), P2=#EA580C (orange-600),
 > P3=#CA8A04 (yellow-600), P4=#2563EB (blue-600), P5=#6B7280 (gray-500).
 > Create a `useDarkMode` hook that reads from localStorage and toggles a `dark` class on `<html>`.
@@ -186,7 +186,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: SeverityBadge component
 
 **Prompt**
-> Create `web/src/components/SeverityBadge.tsx` in the SIEMAgent frontend.
+> Create `web/src/components/SeverityBadge.tsx` in the Casewright frontend.
 > It takes a `severity: "P1"|"P2"|"P3"|"P4"|"P5"` prop and renders a small pill badge.
 > P1 pulses with a CSS animation to convey urgency. P5 is muted.
 > Include a `size` prop: `sm` (text-xs, px-1.5 py-0.5) and `md` (text-sm, px-2 py-1).
@@ -266,7 +266,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Syslog parser unit tests
 
 **Prompt**
-> Create `internal/parser/syslog_test.go` in the SIEMAgent project.
+> Create `internal/parser/syslog_test.go` in the Casewright project.
 > Write table-driven tests for `ParseSyslog` covering:
 > (1) valid RFC 5424 line — assert all fields parsed correctly,
 > (2) valid line with NILVALUE procid (`-`) — assert PID is 0,
@@ -281,7 +281,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: JSON log parser unit tests
 
 **Prompt**
-> Create `internal/parser/json_log_test.go` in the SIEMAgent project.
+> Create `internal/parser/json_log_test.go` in the Casewright project.
 > Write table-driven tests for `ParseJSON` covering these real-world formats:
 > (1) logrus format (`level`, `msg`, `time`),
 > (2) zap format (`level`, `message`, `ts` as Unix float),
@@ -296,7 +296,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Classifier mock test
 
 **Prompt**
-> Create `internal/classifier/classifier_test.go` in the SIEMAgent project.
+> Create `internal/classifier/classifier_test.go` in the Casewright project.
 > Write a test for `Classifier.Classify` that uses a mock OpenAI-compatible HTTP server
 > (use `net/http/httptest`) that returns a valid SSE stream with the classification JSON.
 > Assert that the returned `*Classification` has the correct `AttackType`, `Severity`,
@@ -310,7 +310,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: API integration tests
 
 **Prompt**
-> Create `internal/api/server_test.go` in the SIEMAgent project.
+> Create `internal/api/server_test.go` in the Casewright project.
 > Use `net/http/httptest.NewRecorder()` and `httptest.NewServer` to test the Chi handlers
 > without a real LLM. Mock the classifier using an interface:
 > create a `ClassifierInterface` with a `Classify` method, and inject a mock that returns
@@ -351,7 +351,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Ollama embeddings client
 
 **Prompt**
-> Create `pkg/ollama/embeddings.go` in the SIEMAgent project.
+> Create `pkg/ollama/embeddings.go` in the Casewright project.
 > Implement an `Embedder` struct with a `NewEmbedder(baseURL string) *Embedder` constructor
 > (default baseURL: `http://localhost:11434`).
 > Implement `func (e *Embedder) Embed(ctx context.Context, text string) ([]float32, error)`.
@@ -365,7 +365,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Qdrant collection initialization
 
 **Prompt**
-> Implement `EnsureCollection` in `pkg/qdrant/client.go` in the SIEMAgent project.
+> Implement `EnsureCollection` in `pkg/qdrant/client.go` in the Casewright project.
 > Use `s.client.CreateCollection` from `github.com/qdrant/go-client/qdrant` to create the
 > collection with `VectorsConfig` set to cosine distance and 768 dimensions
 > (matching nomic-embed-text output). If the collection already exists, swallow the
@@ -377,7 +377,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Event upsert pipeline
 
 **Prompt**
-> Implement `Upsert` in `pkg/qdrant/client.go` in the SIEMAgent project.
+> Implement `Upsert` in `pkg/qdrant/client.go` in the Casewright project.
 > Accept `id string, vector []float32, payload map[string]any`.
 > Construct a `*qdrant.PointStruct` where the ID is a UUID derived from the event ID string
 > (use `fmt.Sprintf` + deterministic hashing to convert string ID to uint64),
@@ -390,7 +390,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Semantic search
 
 **Prompt**
-> Implement `Search` in `pkg/qdrant/client.go` in the SIEMAgent project.
+> Implement `Search` in `pkg/qdrant/client.go` in the Casewright project.
 > Use `s.client.Query` to run a nearest-neighbour search against the collection.
 > Accept `queryVector []float32`, `topK uint64`, and an optional `filter *qdrant.Filter`.
 > Return `[]SearchResult` where `SearchResult` has `ID string`, `Score float32`, and `Payload map[string]any`.
@@ -415,9 +415,9 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Bulk ingestion endpoint
 
 **Prompt**
-> Implement `POST /ingest` in `internal/api/server.go` in the SIEMAgent project.
+> Implement `POST /ingest` in `internal/api/server.go` in the Casewright project.
 > Accept a JSON body `{"logs": ["line1", "line2", ...], "format": "auto"}` with up to 500 lines.
-> Parse all lines, classify them using the worker pool from `cmd/siemagent/main.go`'s
+> Parse all lines, classify them using the worker pool from `cmd/casewright/main.go`'s
 > `classifyPool` function (extract it into `internal/pipeline/pool.go`),
 > then return `{"accepted": 47, "classified": 45, "errors": 2, "results": [...ClassifiedEvent]}`.
 > Stream progress using `Transfer-Encoding: chunked` — flush a progress JSON line every 10 events.
@@ -431,7 +431,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Semantic search page
 
 **Prompt**
-> Create `web/src/pages/Search.tsx` in the SIEMAgent frontend.
+> Create `web/src/pages/Search.tsx` in the Casewright frontend.
 > Layout: a large search bar at the top, optional severity filter checkboxes.
 > On submit, call `GET /api/search?q={query}&severity={filter}&limit=20`.
 > Render results as a list of `EventCard` components sorted by relevance score.
@@ -475,7 +475,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Qdrant integration test
 
 **Prompt**
-> Create `pkg/qdrant/client_integration_test.go` in the SIEMAgent project.
+> Create `pkg/qdrant/client_integration_test.go` in the Casewright project.
 > Add a `//go:build integration` build tag so it runs only with `go test -tags integration`.
 > The test connects to Qdrant at `localhost:6334` (or `QDRANT_TEST_HOST` env var).
 > It: creates a test collection with 4-dimensional vectors, upserts 5 test points with payloads,
@@ -487,7 +487,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Embedding consistency test
 
 **Prompt**
-> Create `pkg/ollama/embeddings_test.go` in the SIEMAgent project.
+> Create `pkg/ollama/embeddings_test.go` in the Casewright project.
 > Write a unit test using `httptest.NewServer` that simulates the Ollama API.
 > Assert that `Embed` returns a slice of the expected length (768 for nomic-embed-text).
 > Assert that `EmbedBatch` calls the mock server exactly N times for N inputs.
@@ -500,7 +500,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: API load test
 
 **Prompt**
-> Create `internal/api/load_test.go` in the SIEMAgent project (Go benchmark, not k6).
+> Create `internal/api/load_test.go` in the Casewright project (Go benchmark, not k6).
 > Write `BenchmarkClassifyEndpoint` using `httptest.NewServer` with a mock classifier
 > that returns instantly. Benchmark concurrent requests using `b.SetParallelism(10)` and `b.RunParallel`.
 > Also write `BenchmarkParseLogFile` that benchmarks reading and parsing 1000 lines from
@@ -523,7 +523,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Tool type definitions
 
 **Prompt**
-> Create `internal/agent/tools.go` in the SIEMAgent project.
+> Create `internal/agent/tools.go` in the Casewright project.
 > Define a `Tool` interface with `Name() string`, `Description() string`, `Schema() json.RawMessage`,
 > and `Execute(ctx context.Context, input json.RawMessage) (string, error)`.
 > Define an `openai.Tool`-compatible builder function `ToOpenAITool(t Tool) openai.Tool`
@@ -536,7 +536,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: AbuseIPDB tool
 
 **Prompt**
-> Create `internal/agent/tools/abuseipdb.go` in the SIEMAgent project.
+> Create `internal/agent/tools/abuseipdb.go` in the Casewright project.
 > Implement the `Tool` interface for AbuseIPDB IP reputation lookup.
 > JSON input schema: `{"ip": "string (required — IPv4 or IPv6 address)"}`.
 > Call `GET https://api.abuseipdb.com/api/v2/check?ipAddress={ip}&maxAgeInDays=90`
@@ -550,7 +550,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: AlienVault OTX tool
 
 **Prompt**
-> Create `internal/agent/tools/otx.go` in the SIEMAgent project.
+> Create `internal/agent/tools/otx.go` in the Casewright project.
 > Implement the `Tool` interface for AlienVault OTX threat intel lookup.
 > JSON input schema: `{"indicator": "string (required)", "type": "string (ip|domain|hash)"}`.
 > For IP: GET `https://otx.alienvault.com/api/v1/indicators/IPv4/{indicator}/general`.
@@ -565,7 +565,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: MITRE ATT&CK lookup tool
 
 **Prompt**
-> Create `internal/agent/tools/mitre.go` in the SIEMAgent project.
+> Create `internal/agent/tools/mitre.go` in the Casewright project.
 > Implement a `MITRELookup` tool that needs NO API key (uses local data).
 > On package init, download and cache the MITRE ATT&CK STIX bundle from
 > `https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json`
@@ -578,7 +578,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Qdrant search tool (agent-accessible)
 
 **Prompt**
-> Create `internal/agent/tools/similar_events.go` in the SIEMAgent project.
+> Create `internal/agent/tools/similar_events.go` in the Casewright project.
 > Implement a `SimilarEventsTool` that wraps the Qdrant `Store` and Ollama `Embedder`.
 > JSON input schema: `{"query": "string (natural language description of the incident)","limit": "integer (default 5)"}`.
 > Embed the query, search Qdrant, and return the top N similar past events as a JSON array
@@ -590,7 +590,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Agent loop
 
 **Prompt**
-> Create `internal/agent/agent.go` in the SIEMAgent project.
+> Create `internal/agent/agent.go` in the Casewright project.
 > Implement `func RunIncidentAgent(ctx context.Context, client *openai.Client, model string, registry *ToolRegistry, event models.ClassifiedEvent) (string, error)`.
 > This is the core tool-use loop:
 > 1. Build an initial system prompt describing the agent's role as a security incident responder.
@@ -606,7 +606,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Streaming agent loop over WebSocket
 
 **Prompt**
-> Extend `internal/agent/agent.go` in the SIEMAgent project to support streaming.
+> Extend `internal/agent/agent.go` in the Casewright project to support streaming.
 > Add `func RunIncidentAgentStream(ctx context.Context, client *openai.Client, model string, registry *ToolRegistry, event models.ClassifiedEvent, send func(AgentEvent)) error`.
 > `AgentEvent` is a struct with `Type string` and `Data string`.
 > Send events: `{"type":"tool_call","data":"{\"name\":\"check_abuseipdb\",\"input\":{...}}"}` when a tool is called,
@@ -620,7 +620,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: WebSocket hub
 
 **Prompt**
-> Create `internal/api/hub.go` in the SIEMAgent project.
+> Create `internal/api/hub.go` in the Casewright project.
 > Implement a `Hub` struct that manages WebSocket client connections with:
 > `Register(conn *websocket.Conn) string` (returns a client ID),
 > `Unregister(id string)`, `Broadcast(msg []byte)`, `Send(id string, msg []byte)`.
@@ -634,7 +634,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: P1/P2 auto-trigger
 
 **Prompt**
-> In `internal/api/server.go` in the SIEMAgent project, after every successful `POST /classify`,
+> In `internal/api/server.go` in the Casewright project, after every successful `POST /classify`,
 > check if the classification severity is P1 or P2.
 > If so, launch a goroutine that calls `agent.RunIncidentAgentStream` and, for each `AgentEvent`,
 > marshals it to JSON and calls `hub.Broadcast`.
@@ -651,7 +651,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: useAlertStream hook
 
 **Prompt**
-> Create `web/src/hooks/useAlertStream.ts` in the SIEMAgent frontend.
+> Create `web/src/hooks/useAlertStream.ts` in the Casewright frontend.
 > This React hook opens a WebSocket to `ws://localhost:8080/ws/alerts`.
 > It manages reconnection with exponential backoff (1s, 2s, 4s, max 30s).
 > It returns `{ connected: boolean, incidents: Map<string, Incident>, latestEvent: AgentEvent | null }`.
@@ -664,7 +664,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Live alert ticker
 
 **Prompt**
-> Create `web/src/components/AlertTicker.tsx` in the SIEMAgent frontend.
+> Create `web/src/components/AlertTicker.tsx` in the Casewright frontend.
 > This is a fixed banner at the top of the app that shows active P1/P2 incidents.
 > When a new incident starts, it slides in from the right with a CSS transition.
 > Each alert shows: severity badge (pulsing for P1), source host, attack type, and "Investigating…"
@@ -677,7 +677,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Incident detail page
 
 **Prompt**
-> Create `web/src/pages/Incident.tsx` in the SIEMAgent frontend.
+> Create `web/src/pages/Incident.tsx` in the Casewright frontend.
 > It receives an `incidentId` URL param and reads from the `useAlertStream` hook.
 > Layout: left column (40%) shows the original classified event — all fields from Phase 1's detail panel.
 > Right column (60%) shows the agent's investigation in real-time:
@@ -691,7 +691,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Threat intel cards
 
 **Prompt**
-> Create `web/src/components/ThreatIntelPanel.tsx` in the SIEMAgent frontend.
+> Create `web/src/components/ThreatIntelPanel.tsx` in the Casewright frontend.
 > Given an array of `AgentEvent` objects from a completed incident, extract all
 > `tool_result` events where the tool name is `check_abuseipdb` or `check_otx`.
 > For each AbuseIPDB result, render a card: IP, abuse score as a coloured gauge (green/yellow/red),
@@ -704,7 +704,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: MITRE ATT&CK heatmap
 
 **Prompt**
-> Create `web/src/components/MITREHeatmap.tsx` in the SIEMAgent frontend using recharts or d3-lite.
+> Create `web/src/components/MITREHeatmap.tsx` in the Casewright frontend using recharts or d3-lite.
 > It takes `events: ClassifiedEvent[]` as a prop.
 > Build a grid: rows = 14 MITRE tactics (in kill-chain order from Reconnaissance to Impact),
 > columns = weekdays (Mon–Sun for the last 7 days).
@@ -722,7 +722,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Tool unit tests with mock HTTP
 
 **Prompt**
-> Create `internal/agent/tools/abuseipdb_test.go` in the SIEMAgent project.
+> Create `internal/agent/tools/abuseipdb_test.go` in the Casewright project.
 > Write tests for the AbuseIPDB tool using `httptest.NewServer` as the mock API server.
 > Test (1): valid IP → correct JSON fields in the return string.
 > Test (2): RFC1918 private IP (`10.0.0.1`) → no HTTP call made, note returned.
@@ -735,7 +735,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: Agent loop test with mock LLM
 
 **Prompt**
-> Create `internal/agent/agent_test.go` in the SIEMAgent project.
+> Create `internal/agent/agent_test.go` in the Casewright project.
 > Mock the OpenAI-compatible HTTP server using `httptest.NewServer`.
 > Scenario 1: LLM returns one tool call (`check_abuseipdb`), then on the second call returns `finish_reason: stop`.
 > Assert the loop calls the tool exactly once and returns the final text.
@@ -748,7 +748,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: WebSocket integration test
 
 **Prompt**
-> Create `internal/api/hub_test.go` in the SIEMAgent project.
+> Create `internal/api/hub_test.go` in the Casewright project.
 > Start a `httptest.NewServer` with the full Chi router including the WebSocket endpoint.
 > Connect 3 WebSocket clients using `gorilla/websocket.DefaultDialer.Dial`.
 > Call `hub.Broadcast([]byte("test"))` and assert all 3 clients receive the message within 1 second.
@@ -760,7 +760,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ### Feature: E2E test with Playwright
 
 **Prompt**
-> Create `web/e2e/classify.spec.ts` in the SIEMAgent frontend using Playwright.
+> Create `web/e2e/classify.spec.ts` in the Casewright frontend using Playwright.
 > Set up `playwright.config.ts` with a `baseURL: "http://localhost:5173"` and a `webServer`
 > that starts the Go backend (with a test KIMCHI_API_KEY that uses a mock server) and Vite dev server.
 > Write test 1: navigate to Dashboard, type a syslog line into the classify input, submit,
@@ -779,7 +779,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ## Security Hardening
 
 **Prompt**
-> Audit the SIEMAgent Go API for security issues and fix them.
+> Audit the Casewright Go API for security issues and fix them.
 > (1) Add `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`,
 > and `Referrer-Policy` response headers in a middleware.
 > (2) Sanitise all log content before returning it in API responses — strip ANSI codes
@@ -794,7 +794,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ## Observability
 
 **Prompt**
-> Add structured observability to the SIEMAgent project.
+> Add structured observability to the Casewright project.
 > (1) In every slog log line across all packages, add a `"component"` field (classifier, parser, agent, api).
 > (2) Add OpenTelemetry tracing using `go.opentelemetry.io/otel`: create a tracer in main,
 > start a span in the classifier around the LLM call, and in the agent around each tool execution.
@@ -806,10 +806,10 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ## Production Dockerfile
 
 **Prompt**
-> Write a multi-stage `Dockerfile` for the SIEMAgent project.
+> Write a multi-stage `Dockerfile` for the Casewright project.
 > Stage 1 (`build-frontend`): use `node:22-alpine`, run `npm ci` and `npm run build` in `web/`.
 > Stage 2 (`build-backend`): use `golang:1.26-alpine`, copy `go.mod`/`go.sum` and run `go mod download`,
-> then copy source and run `go build -ldflags="-s -w" -o /siemagent ./cmd/siemagent`.
+> then copy source and run `go build -ldflags="-s -w" -o /casewright ./cmd/casewright`.
 > The binary should embed the React build output via `//go:embed web/dist` and serve it from `GET /*`.
 > Stage 3 (`runtime`): use `gcr.io/distroless/static-debian12`, copy only the binary.
 > The final image should be under 30MB. Add a `HEALTHCHECK` instruction calling `/health`.
@@ -819,7 +819,7 @@ Each prompt is ready to paste directly into Claude or your AI coding tool.
 ## CI/CD Pipeline
 
 **Prompt**
-> Write a `.github/workflows/ci.yml` for the SIEMAgent project.
+> Write a `.github/workflows/ci.yml` for the Casewright project.
 > Jobs:
 > `lint`: runs `golangci-lint` on Go code and `eslint` on TypeScript.
 > `test-unit`: runs `go test ./...` and `npm run test` (Vitest), uploads coverage to Codecov.

@@ -16,19 +16,19 @@ make test-integration    # store, incident, response and auth contracts on Postg
 
 | Area | Where the tests live |
 |---|---|
-| Detection rules (every rule replays its own `samples`) | `siemagent/internal/detection/*_test.go` |
-| Incidents, reports, AI briefs | `siemagent/internal/incident/*_test.go` |
-| Playbooks, approvals, safety guards, webhook executor | `siemagent/internal/response/*_test.go` |
-| Users, sessions, lockout, roles, audit | `siemagent/internal/auth/*_test.go` |
-| HTTP API end to end (stub LLM, fake webhooks) | `siemagent/internal/api/*_test.go` |
-| Dashboard pages and components | `siemagent/web/src/__tests__/` |
+| Detection rules (every rule replays its own `samples`) | `casewright/internal/detection/*_test.go` |
+| Incidents, reports, AI briefs | `casewright/internal/incident/*_test.go` |
+| Playbooks, approvals, safety guards, webhook executor | `casewright/internal/response/*_test.go` |
+| Users, sessions, lockout, roles, audit | `casewright/internal/auth/*_test.go` |
+| HTTP API end to end (stub LLM, fake webhooks) | `casewright/internal/api/*_test.go` |
+| Dashboard pages and components | `casewright/web/src/__tests__/` |
 
 ## Hands-on walkthrough
 
 **Quickest path:** `make demo` starts Postgres, the API, the dashboard and a
 stand-in containment webhook in Docker, replays the attack scenario below on
 first start, and needs no API key (rules-only mode). Sign in at
-http://localhost:3000 as `admin` / `siemagent-demo` and jump to step 4.
+http://localhost:3000 as `admin` / `casewright-demo` and jump to step 4.
 `make demo-test` checks a fresh demo end to end (CI runs it on every pull
 request). In rules-only mode the lines no rule matches are stored as
 *Unclassified* (P5) and there is no AI investigation; everything else below
@@ -38,12 +38,12 @@ The steps below run the platform from source instead.
 
 ### 1. Start the platform
 
-In `siemagent/.env` set an LLM (e.g. `GEMINI_API_KEY`, or `LLM_PROVIDER=ollama`)
+In `casewright/.env` set an LLM (e.g. `GEMINI_API_KEY`, or `LLM_PROVIDER=ollama`)
 and, to test logins, a first admin:
 
 ```env
-SIEM_ADMIN_USER=admin
-SIEM_ADMIN_PASSWORD=choose-12-or-more-chars
+CASEWRIGHT_ADMIN_USER=admin
+CASEWRIGHT_ADMIN_PASSWORD=choose-12-or-more-chars
 ```
 
 To see response actions really execute, point the containment webhook at
@@ -67,7 +67,7 @@ RESPONSE_WEBHOOK_URL=http://127.0.0.1:9998/contain
 Then:
 
 ```bash
-cd siemagent
+cd casewright
 make docker-up
 make dev        # backend :8080 + dashboard :5173
 ```
@@ -75,7 +75,7 @@ make dev        # backend :8080 + dashboard :5173
 Wait for `Casewright HTTP server starting` in the terminal and open
 http://localhost:5173. If the dashboard says it cannot reach the backend,
 read the terminal for a line starting with `error:` (a short
-`SIEM_ADMIN_PASSWORD` is the usual one).
+`CASEWRIGHT_ADMIN_PASSWORD` is the usual one).
 
 ### 2. Sign in
 
@@ -83,13 +83,13 @@ Sign in with the admin from `.env`. The sidebar shows your name and role.
 
 ### 3. Replay the attack scenario
 
-Click **Upload** and choose `siemagent/demo/attack-scenario.log`, or:
+Click **Upload** and choose `casewright/demo/attack-scenario.log`, or:
 
 ```bash
-cd siemagent
+cd casewright
 python3 -c "import json;print(json.dumps({'logs':[l for l in open('demo/attack-scenario.log').read().splitlines() if l and not l.startswith('#')]}))" > /tmp/demo.json
 curl -s -X POST localhost:8080/api/ingest -H 'Content-Type: application/json' \
-  -H "X-API-Key: $KEY" -d @/tmp/demo.json | tail -1   # with SIEM_API_KEYS set
+  -H "X-API-Key: $KEY" -d @/tmp/demo.json | tail -1   # with CASEWRIGHT_API_KEYS set
 ```
 
 It contains three attacks plus background noise:
@@ -169,7 +169,7 @@ The event appears in **Events** within a few seconds.
 
 ```bash
 make docker-down
-docker volume ls | grep siemagent   # remove the Postgres volume to wipe all data
+docker volume ls | grep casewright   # remove the Postgres volume to wipe all data
 ```
 
 Without `POSTGRES_DSN` everything lives in memory, so a restart is a clean

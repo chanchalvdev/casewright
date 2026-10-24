@@ -14,7 +14,7 @@ Make sure the following are installed before starting:
 ## Step 1 — Clone and enter the project
 
 ```bash
-cd siemagent
+cd casewright
 ```
 
 ---
@@ -30,7 +30,7 @@ Open `.env` and fill in your API key:
 ```env
 KIMCHI_API_KEY=your_kimchi_api_key_here   # required
 KIMCHI_BASE_URL=https://api.kimchi.ai/v1  # default, change if using OpenAI
-SIEM_MODEL=kimi-k2-5                      # LLM model to use
+CASEWRIGHT_MODEL=kimi-k2-5                      # LLM model to use
 CONDUCTOR_PORT=8080                        # HTTP server port
 ```
 
@@ -84,7 +84,7 @@ make pull-models
 make build
 ```
 
-The compiled binary is written to `./bin/siemagent`.
+The compiled binary is written to `./bin/casewright`.
 
 ---
 
@@ -99,7 +99,7 @@ This starts the server on the port set by `CONDUCTOR_PORT` (default `8080`).
 To specify a port manually:
 
 ```bash
-./bin/siemagent --serve --port 8080
+./bin/casewright --serve --port 8080
 ```
 
 The server is ready when you see output like:
@@ -161,13 +161,13 @@ Frontend dev server runs at `http://localhost:5173`.
 Instead of running the HTTP server, classify a log file and print a summary table:
 
 ```bash
-./bin/siemagent sample.log
+./bin/casewright sample.log
 ```
 
 Write results to a file:
 
 ```bash
-./bin/siemagent --output results.json sample.log
+./bin/casewright --output results.json sample.log
 ```
 
 ---

@@ -32,7 +32,7 @@ them would be building a second floor on an unfinished foundation.
 ### 1.1 The architecture is economically impossible at real volume
 
 Every event takes the same path: HTTP → parse → **LLM** → response
-([`classifier.go:105`](siemagent/internal/classifier/classifier.go#L105)). There is
+([`classifier.go:105`](casewright/internal/classifier/classifier.go#L105)). There is
 no rule tier, no cache, no dedup, no fingerprinting — confirmed absent across the
 whole module.
 
@@ -54,7 +54,7 @@ cheaper.
 
 ### 1.2 The system has amnesia
 
-[`store/events.go:10-18`](siemagent/internal/store/events.go#L10-L18) is a
+[`store/events.go:10-18`](casewright/internal/store/events.go#L10-L18) is a
 **1000-element in-memory ring buffer**. Restart the process and every classified
 event, every analytics number, every incident is gone. The dashboard's analytics
 (`Summary()`) are computed over whatever happens to still be in RAM.
@@ -74,7 +74,7 @@ of any kind — grep for `eval|golden|feedback` returns nothing.
 
 This is the most serious gap for an *LLM* product specifically. Right now, if
 someone edits the system prompt at
-[`classifier.go:18`](siemagent/internal/classifier/classifier.go#L18) — reorders a
+[`classifier.go:18`](casewright/internal/classifier/classifier.go#L18) — reorders a
 severity rule, adds an attack type — **there is no mechanism on earth to tell
 whether the product got better or worse.** The Go tests verify that JSON parses,
 not that the verdict is correct. `go test` passing means the plumbing works, not
@@ -90,7 +90,7 @@ When an analyst looks at a verdict and thinks "that's a false positive" — noth
 captures it. There is no feedback endpoint, no verdict override, no label store.
 
 This is a strategic loss, not just a missing feature. Qdrant is *already wired*
-([`classifier.go:160`](siemagent/internal/classifier/classifier.go#L160)) and holds
+([`classifier.go:160`](casewright/internal/classifier/classifier.go#L160)) and holds
 embeddings of past events. Confirmed analyst verdicts could be retrieved as
 few-shot examples on every future classification, making the system measurably
 better at *this customer's* logs over time. That compounding loop is the only part
@@ -100,7 +100,7 @@ built.
 ### 1.5 Events are judged in isolation — attacks are not
 
 Every classification sees exactly one log line
-([`buildUserMessage`](siemagent/internal/classifier/classifier.go#L198)). But an
+([`buildUserMessage`](casewright/internal/classifier/classifier.go#L198)). But an
 intrusion is a *sequence*:
 
 ```
@@ -130,20 +130,20 @@ the architecture in §1.1 is viable.
 
 - **No inbound authentication on any route.** The `APIKey` in config is the
   *outbound* LLM credential. `/api/classify`, `/api/search`, `/api/analytics` are
-  all open ([`server.go:124-129`](siemagent/internal/api/server.go#L124-L129)).
-- **`/metrics` is publicly served** ([`server.go:121`](siemagent/internal/api/server.go#L121)) —
+  all open ([`server.go:124-129`](casewright/internal/api/server.go#L124-L129)).
+- **`/metrics` is publicly served** ([`server.go:121`](casewright/internal/api/server.go#L121)) —
   it leaks attack types and volumes to anyone who asks.
 - **The agent has no spend ceiling.** `maxIterations = 8`
-  ([`agent.go:16`](siemagent/internal/agent/agent.go#L16)) bounds the loop count but
+  ([`agent.go:16`](casewright/internal/agent/agent.go#L16)) bounds the loop count but
   not tokens, not wall-clock, not concurrent investigations. Auto-triggering on
   high-severity events means an attacker who can generate P1-looking logs can
   generate unbounded LLM spend — a cost-exhaustion vector.
 - **Credit where due — two defences are properly built.** IOC validation before
   outbound requests rejects malformed IPs *and* private/loopback/link-local ranges
-  ([`abuseipdb.go:56-60`](siemagent/internal/agent/tools/abuseipdb.go#L56-L60),
-  [`otx.go:63-67`](siemagent/internal/agent/tools/otx.go#L63-L67)) — a correct SSRF
+  ([`abuseipdb.go:56-60`](casewright/internal/agent/tools/abuseipdb.go#L56-L60),
+  [`otx.go:63-67`](casewright/internal/agent/tools/otx.go#L63-L67)) — a correct SSRF
   defence on the highest-risk path, where LLM-extracted strings become outbound
-  requests. Separately, [`sanitize.go`](siemagent/internal/api/sanitize.go) strips
+  requests. Separately, [`sanitize.go`](casewright/internal/api/sanitize.go) strips
   ANSI escapes and C0 control characters from log-derived output, defending the
   *viewer* against log-injection. Both are real, and both are the kind of thing
   that usually gets skipped.
@@ -152,12 +152,12 @@ the architecture in §1.1 is viable.
 
 | Issue | Location | Note |
 |---|---|---|
-| Hand-rolled `min()` | [`classifier.go:191`](siemagent/internal/classifier/classifier.go#L191) | CLAUDE.md explicitly mandates the Go 1.21+ builtin |
-| `fmt.Fprintf(os.Stderr,…)` in prod path | [`pool.go:41`](siemagent/internal/pipeline/pool.go#L41) | CLAUDE.md mandates `slog` — worker errors are invisible to structured logging |
-| Event ID is a truncated raw string | [`classifier.go:175`](siemagent/internal/classifier/classifier.go#L175) | `Raw[:32]` as identity — collides on similar prefixes |
-| Identical logs create distinct vectors | [`classifier.go:185`](siemagent/internal/classifier/classifier.go#L185) | ID includes `UnixNano`, so the same line re-indexes forever; Qdrant grows without bound |
+| Hand-rolled `min()` | [`classifier.go:191`](casewright/internal/classifier/classifier.go#L191) | CLAUDE.md explicitly mandates the Go 1.21+ builtin |
+| `fmt.Fprintf(os.Stderr,…)` in prod path | [`pool.go:41`](casewright/internal/pipeline/pool.go#L41) | CLAUDE.md mandates `slog` — worker errors are invisible to structured logging |
+| Event ID is a truncated raw string | [`classifier.go:175`](casewright/internal/classifier/classifier.go#L175) | `Raw[:32]` as identity — collides on similar prefixes |
+| Identical logs create distinct vectors | [`classifier.go:185`](casewright/internal/classifier/classifier.go#L185) | ID includes `UnixNano`, so the same line re-indexes forever; Qdrant grows without bound |
 | Five packages ship no tests | `config`, `metrics`, `models`, `pipeline`, `store` | CLAUDE.md: "All new Go packages must have at least one `_test.go`" — `pipeline` and `store` hold real logic |
-| Silent worker drop | [`pool.go:41-43`](siemagent/internal/pipeline/pool.go#L41-L43) | Classify failure `continue`s — the event is lost with no DLQ, no retry, no counter |
+| Silent worker drop | [`pool.go:41-43`](casewright/internal/pipeline/pool.go#L41-L43) | Classify failure `continue`s — the event is lost with no DLQ, no retry, no counter |
 | Harness is fiction | `scripts/`, `.github/workflows/`, root `Makefile` | CLAUDE.md documents a quality-gate harness and CI that **do not exist as files** |
 
 That last row deserves emphasis: CLAUDE.md describes `make quality-gate`,

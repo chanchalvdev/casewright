@@ -7,7 +7,7 @@ recognises.
 
 ## How rules and the LLM combine
 
-Set `DETECTION_MODE` in `siemagent/.env`:
+Set `DETECTION_MODE` in `casewright/.env`:
 
 | Mode | Rule matches | Events no rule matches |
 |---|---|---|
@@ -45,7 +45,7 @@ air-gapped sites and anyone evaluating the rules. It requires
 
 ## Rules that ship with Casewright
 
-The built-in pack lives in `siemagent/internal/detection/rules/` and is
+The built-in pack lives in `casewright/internal/detection/rules/` and is
 compiled into the binary. List what is loaded, with match counts:
 
 ```bash

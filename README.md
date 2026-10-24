@@ -14,9 +14,9 @@ alongside Wazuh, Elastic or Security Onion, working the alerts they raise.
 **[Platform overview: vision, architecture, automation level of each task, MSSP roles](https://claude.ai/artifact/M9VgQStv22tGgc5rHpmV3i)** ·
 **[Roadmap](ROADMAP.md)** · **[Contributing](CONTRIBUTING.md)**
 
-> Casewright was previously called *Go SIEM Agent* (`siemagent`). The code still
-> lives in `siemagent/` and the binary, Go module, Docker images and database
-> keep the old name until a later code-rename release.
+> Casewright was previously called *Go SIEM Agent* (`siemagent`). Upgrading from
+> it: the folder, binary, images and database are now `casewright`, and the
+> `SIEM_*` settings are `CASEWRIGHT_*` (the old names still work, with a warning).
 
 [![CI](https://github.com/chanchalvdev/casewright/actions/workflows/ci.yml/badge.svg)](https://github.com/chanchalvdev/casewright/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -33,14 +33,14 @@ You need Docker. No API key, no setup:
 ```bash
 git clone https://github.com/chanchalvdev/casewright.git
 cd casewright
-make demo        # or: docker compose -f siemagent/demo/compose.yml up -d --build --wait
+make demo        # or: docker compose -f casewright/demo/compose.yml up -d --build --wait
 ```
 
-Open **http://localhost:3000** and sign in as `admin` / `siemagent-demo`. A
+Open **http://localhost:3000** and sign in as `admin` / `casewright-demo`. A
 prepared attack (SSH brute force → root shell, a port scan, ransomware deleting
 shadow copies) is replayed on first start, so there are already three incidents,
 a kill chain and response actions waiting for approval. Approve the IP block and
-watch it arrive at the stand-in firewall: `docker compose -f siemagent/demo/compose.yml logs webhook`.
+watch it arrive at the stand-in firewall: `docker compose -f casewright/demo/compose.yml logs webhook`.
 
 The demo runs **rules-only** (`LLM_PROVIDER=none`). For AI classification and
 investigations, start it with a key: `LLM_PROVIDER=gemini GEMINI_API_KEY=... make demo`.
@@ -147,8 +147,8 @@ prepared attack scenario, follow **[docs/TESTING.md](docs/TESTING.md)**.
 
 ```
 casewright/
-├── siemagent/
-│   ├── cmd/siemagent/        # Main entrypoint (CLI + HTTP server)
+├── casewright/
+│   ├── cmd/casewright/        # Main entrypoint (CLI + HTTP server)
 │   ├── internal/
 │   │   ├── agent/            # LLM tool-calling agent + tools (MITRE, AbuseIPDB, OTX, similar events)
 │   │   ├── api/              # HTTP handlers, router, auth/roles/CSRF/audit middleware, WS hub
@@ -206,7 +206,7 @@ casewright/
 
 ```bash
 git clone https://github.com/chanchalvdev/casewright.git
-cd casewright/siemagent
+cd casewright/casewright
 ```
 
 ### 2. Configure environment
@@ -295,10 +295,10 @@ Dashboard available at **http://localhost:5173**
 | `OLLAMA_MODEL` | Local chat model when `LLM_PROVIDER=ollama` | `llama3.2` |
 | `KIMCHI_API_KEY` / `OPENAI_API_KEY` | Key for an OpenAI-compatible endpoint | — |
 | `KIMCHI_BASE_URL` | OpenAI-compatible base URL | `https://api.kimchi.ai/v1` |
-| `SIEM_MODEL` | Model for the OpenAI-compatible endpoint | `kimi-k2-5` |
-| `SIEM_API_KEYS` | Comma-separated API keys for machine access (admin role) | — |
-| `SIEM_ADMIN_USER` / `SIEM_ADMIN_PASSWORD` | Creates the first dashboard admin when no user exists ([docs/USERS.md](docs/USERS.md)) | — |
-| `SIEM_SESSION_TTL` / `SIEM_COOKIE_SECURE` | Login lifetime; Secure cookie behind HTTPS | `12h` / `false` |
+| `CASEWRIGHT_MODEL` | Model for the OpenAI-compatible endpoint | `kimi-k2-5` |
+| `CASEWRIGHT_API_KEYS` | Comma-separated API keys for machine access (admin role) | — |
+| `CASEWRIGHT_ADMIN_USER` / `CASEWRIGHT_ADMIN_PASSWORD` | Creates the first dashboard admin when no user exists ([docs/USERS.md](docs/USERS.md)) | — |
+| `CASEWRIGHT_SESSION_TTL` / `CASEWRIGHT_COOKIE_SECURE` | Login lifetime; Secure cookie behind HTTPS | `12h` / `false` |
 | `INCIDENT_WINDOW` / `INCIDENT_MIN_SEVERITY` | Alert correlation window and threshold ([docs/INCIDENTS.md](docs/INCIDENTS.md)) | `1h` / `P3` |
 | `PLAYBOOKS_DIR` | Extra response playbooks ([docs/RESPONSE.md](docs/RESPONSE.md)) | — |
 | `RESPONSE_WEBHOOK_URL` / `SLACK_WEBHOOK_URL` | Where approved containment actions and notifications go | — |
@@ -316,7 +316,7 @@ Dashboard available at **http://localhost:5173**
 | `ABUSEIPDB_KEY` | AbuseIPDB API key for the agent's IP-reputation tool | optional |
 | `OTX_API_KEY` | AlienVault OTX API key for the agent's threat-intel tool | optional |
 
-Dashboard (in `siemagent/web/.env.local`): `VITE_SIEM_API_KEY` — the key the dashboard sends when `SIEM_API_KEYS` is set.
+Dashboard (in `casewright/web/.env.local`): `VITE_CASEWRIGHT_API_KEY` — the key the dashboard sends when `CASEWRIGHT_API_KEYS` is set.
 
 ---
 
@@ -329,11 +329,11 @@ SYSLOG_UDP_ADDR=:5514
 SYSLOG_TCP_ADDR=:5514
 ```
 
-Point rsyslog at it (`/etc/rsyslog.d/90-siemagent.conf`):
+Point rsyslog at it (`/etc/rsyslog.d/90-casewright.conf`):
 
 ```
-*.* @siemagent-host:5514      # UDP
-*.* @@siemagent-host:5514     # TCP (newline-framed)
+*.* @casewright-host:5514      # UDP
+*.* @@casewright-host:5514     # TCP (newline-framed)
 ```
 
 Or test by hand:
@@ -350,11 +350,11 @@ Each line is parsed (RFC 5424, RFC 3164 with or without `<PRI>` as written to `/
 
 Three ways to authenticate (details in [docs/USERS.md](docs/USERS.md)):
 
-- **User accounts**: set `SIEM_ADMIN_USER` and `SIEM_ADMIN_PASSWORD` to create
+- **User accounts**: set `CASEWRIGHT_ADMIN_USER` and `CASEWRIGHT_ADMIN_PASSWORD` to create
   the first admin, then sign in to the dashboard and add users as **viewer**,
   **analyst** or **admin**. Sessions use an `HttpOnly`, `SameSite=Strict`
   cookie; every change is written to the audit log.
-- **API keys** for scripts and integrations: set `SIEM_API_KEYS`
+- **API keys** for scripts and integrations: set `CASEWRIGHT_API_KEYS`
   (comma-separated, so keys can be rotated). A key acts as an admin:
 
   ```bash
@@ -374,7 +374,7 @@ See [SECURITY.md](SECURITY.md) for deployment advice.
 
 ## API Reference
 
-All examples assume auth is off; add `-H "X-API-Key: $KEY"` when `SIEM_API_KEYS` is set.
+All examples assume auth is off; add `-H "X-API-Key: $KEY"` when `CASEWRIGHT_API_KEYS` is set.
 
 ### `POST /api/classify`
 
@@ -518,7 +518,7 @@ Click **Upload** and select any `.log` or `.txt` file. The UI classifies all lin
 A ready-made test file with 30 mixed-severity events is included:
 
 ```
-siemagent/test-logs.txt
+casewright/test-logs.txt
 ```
 
 ### Severity filter
@@ -558,13 +558,13 @@ final verdict update live as the agent works.
 Classify a log file directly from the terminal without starting the HTTP server:
 
 ```bash
-./bin/siemagent sample.log
+./bin/casewright sample.log
 ```
 
 Output results to JSON:
 
 ```bash
-./bin/siemagent --output results.json sample.log
+./bin/casewright --output results.json sample.log
 ```
 
 ---
@@ -584,13 +584,13 @@ make clean        # Remove build artifacts
 ### Run everything in containers
 
 ```bash
-cd siemagent
+cd casewright
 docker compose --profile app up -d --build
 # Dashboard: http://localhost:3000   API: http://localhost:8080
 ```
 
-Released images are published to GHCR as `ghcr.io/chanchalvdev/siemagent-api`
-and `ghcr.io/chanchalvdev/siemagent-web`, with binaries for Linux and macOS on
+Released images are published to GHCR as `ghcr.io/chanchalvdev/casewright-api`
+and `ghcr.io/chanchalvdev/casewright-web`, with binaries for Linux and macOS on
 the [releases page](https://github.com/chanchalvdev/casewright/releases).
 How branches, pull requests and releases work is described in
 [docs/BRANCHING.md](docs/BRANCHING.md).
@@ -612,7 +612,7 @@ The dashboard is fully responsive:
 ## Running Tests
 
 ```bash
-cd siemagent
+cd casewright
 make test                  # Go unit tests (with -race)
 make test-integration      # Integration tests (requires Qdrant running)
 
@@ -632,15 +632,15 @@ Prompt and model changes are scored on a hand-labeled set of log lines,
 including adversarial ones, instead of judged by eye.
 
 ```bash
-cd siemagent
+cd casewright
 make eval PROMPT=v1 SUBSET=smoke   # accuracy, per-label precision/recall, invalid-output rate, misses
 ```
 
-- **Thresholds:** `siemagent/evals/threshold.json`. Pull requests that touch
+- **Thresholds:** `casewright/evals/threshold.json`. Pull requests that touch
   the classifier run the smoke subset with Ollama in CI and fail below it; the
   full set runs nightly (`.github/workflows/eval.yml`).
-- **Add a test case:** one JSON line in `siemagent/evals/dataset.jsonl`,
-  labeled by a person. Format and labeling rules: [`siemagent/evals/README.md`](siemagent/evals/README.md).
+- **Add a test case:** one JSON line in `casewright/evals/dataset.jsonl`,
+  labeled by a person. Format and labeling rules: [`casewright/evals/README.md`](casewright/evals/README.md).
 - **Add a prompt version:** copy `internal/classifier/prompts/classifier_vN.txt`
   to the next version, change one thing, run the eval. Production uses the
   classifier's default version, so promoting a prompt is a reviewed change to
@@ -650,7 +650,7 @@ make eval PROMPT=v1 SUBSET=smoke   # accuracy, per-label precision/recall, inval
 
 ## Deploying
 
-[`siemagent/deploy/oci/`](siemagent/deploy/oci/README.md) runs the whole stack
+[`casewright/deploy/oci/`](casewright/deploy/oci/README.md) runs the whole stack
 on one Oracle Cloud Always Free Ampere VM. Only Caddy (HTTPS) is public,
 classification uses a local Ollama model, and a release tag deploys after your
 approval, rolling back if the new version fails its health check.

@@ -27,28 +27,28 @@ jobs:
         goarch: [amd64, arm64]
     defaults:
       run:
-        working-directory: siemagent
+        working-directory: casewright
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
-          go-version-file: siemagent/go.mod
-          cache-dependency-path: siemagent/go.sum
+          go-version-file: casewright/go.mod
+          cache-dependency-path: casewright/go.sum
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: |
-          name="siemagent_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}"
+          name="casewright_${GITHUB_REF_NAME}_${GOOS}_${GOARCH}"
           mkdir -p "dist/$name"
-          go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o "dist/$name/siemagent" ./cmd/siemagent
+          go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o "dist/$name/casewright" ./cmd/casewright
           cp ../LICENSE ../README.md .env.example "dist/$name/"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
       - uses: actions/upload-artifact@v7
         with:
           name: bin-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: siemagent/dist/*.tar.gz
+          path: casewright/dist/*.tar.gz
           if-no-files-found: error
 
   images:
@@ -63,10 +63,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - image: siemagent-api
-            context: siemagent
-          - image: siemagent-web
-            context: siemagent/web
+          - image: casewright-api
+            context: casewright
+          - image: casewright-web
+            context: casewright/web
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v3
@@ -130,7 +130,7 @@ jobs:
             --generate-notes --verify-tag $prerelease
 
   # Runs only once the production environment is configured (see
-  # siemagent/deploy/oci/README.md) and waits for a required reviewer there.
+  # casewright/deploy/oci/README.md) and waits for a required reviewer there.
   # Pre-releases (v1.2.0-rc1) are built but not deployed.
   deploy:
     name: Deploy to Oracle Cloud
@@ -160,7 +160,7 @@ jobs:
           printf '%s\n' "$OCI_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
       - name: Copy the deploy files
         run: |
-          cd siemagent/deploy/oci
+          cd casewright/deploy/oci
           scp -o StrictHostKeyChecking=yes docker-compose.yml Caddyfile deploy.sh prod.env.example \
             "deploy@$OCI_HOST:casewright/"
       - name: Deploy (rolls back on a failed health check)
