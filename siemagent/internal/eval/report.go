@@ -121,3 +121,52 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "…"
 }
+
+// WriteBalance prints how a dataset is spread over labels, kinds, splits and
+// the smoke subset, next to the targets in evals/README.md.
+func WriteBalance(w io.Writer, cases []Case) error {
+	byLabel, byKind, bySplit := map[string]int{}, map[string]int{}, map[string]int{}
+	var smoke, smokeAdv, sev int
+	smokeLabels := map[string]bool{}
+	for _, c := range cases {
+		byLabel[c.Expected]++
+		byKind[c.Kind]++
+		bySplit[c.Split]++
+		if c.ExpectedSeverity != "" {
+			sev++
+		}
+		if c.Smoke && c.Split == SplitDev {
+			smoke++
+			smokeLabels[c.Expected] = true
+			if c.Kind == KindAdversarial {
+				smokeAdv++
+			}
+		}
+	}
+	n := len(cases)
+	p := &printer{w: w}
+	p.f("%d cases, %d with expected_severity\n\n", n, sev)
+
+	t := p.table(0)
+	t.f("label\tcases\ttarget\n")
+	for _, l := range classifier.Labels {
+		t.f("%s\t%d\t~13\n", l, byLabel[string(l)]) // ~120 cases over 9 labels
+	}
+	p.flush(t)
+
+	p.f("\n")
+	t = p.table(0)
+	t.f("kind\tshare\ttarget\n")
+	for _, k := range []struct {
+		name   string
+		target int
+	}{{KindTypical, 50}, {KindHard, 30}, {KindAdversarial, 20}} {
+		t.f("%s\t%s\t~%d%%\n", k.name, pct(ratio(byKind[k.name], n)), k.target)
+	}
+	t.f("holdout\t%s\t~20%%\n", pct(ratio(bySplit[SplitHoldout], n)))
+	p.flush(t)
+
+	p.f("\nsmoke subset: %d cases (target ~25), %d adversarial (target >= 5), %d of %d labels covered\n",
+		smoke, smokeAdv, len(smokeLabels), len(classifier.Labels))
+	return p.err
+}
