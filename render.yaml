@@ -1,0 +1,22 @@
+# Render Blueprint for the public live demo (free plan). In Render:
+# New → Blueprint → this repository. Redeploys on every push to master.
+# The demo is rules-only with in-memory storage and resets every 6 hours;
+# see casewright/deploy/live-demo/.
+services:
+  - type: web
+    name: casewright-demo
+    runtime: docker
+    plan: free
+    branch: master
+    dockerfilePath: ./casewright/deploy/live-demo/Dockerfile
+    dockerContext: ./casewright
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - casewright/deploy/live-demo/**
+        - casewright/demo/**
+        - render.yaml
+    envVars:
+      - key: PORT
+        value: "7860"

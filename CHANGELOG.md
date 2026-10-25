@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Public live demo on Render's free plan (`render.yaml`,
+  `casewright/deploy/live-demo/`): one container built from the release
+  images, rules-only and in-memory. Visitors sign in as a shared analyst
+  (the admin password is random and never shown), approved actions go to a
+  stand-in webhook inside the container, and the demo resets every 6 hours.
+
 ## [2.0.0] - 2026-10-24
 
 First release under the Casewright name and the first since v1.0: an
