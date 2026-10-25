@@ -6,6 +6,7 @@
 
 **Open-source, local-first AI security analyst. Alerts in, resolved cases out.**
 
+[![Live demo](https://img.shields.io/badge/live%20demo-online-2ea44f?logo=render&logoColor=white)](https://casewright-demo.onrender.com)
 [![CI](https://github.com/chanchalvdev/casewright/actions/workflows/ci.yml/badge.svg)](https://github.com/chanchalvdev/casewright/actions/workflows/ci.yml)
 [![Security](https://github.com/chanchalvdev/casewright/actions/workflows/security.yml/badge.svg)](https://github.com/chanchalvdev/casewright/actions/workflows/security.yml)
 [![Release](https://img.shields.io/github/v/release/chanchalvdev/casewright?sort=semver)](https://github.com/chanchalvdev/casewright/releases)
@@ -14,7 +15,7 @@
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 
-[Quick start](#quick-start) · [Architecture](#architecture) · [Features](#features) · [Docs](#documentation) · [Roadmap](ROADMAP.md)
+**[Live demo](https://casewright-demo.onrender.com)** · [Quick start](#quick-start) · [Architecture](#architecture) · [Features](#features) · [Docs](#documentation) · [Roadmap](ROADMAP.md)
 
 <img src="docs/assets/screenshots/incident.jpg" alt="An SSH brute-force incident in Casewright: kill chain, proposed IP block awaiting approval, entities and timeline" width="100%">
 
@@ -55,6 +56,17 @@ cheapest tool that can answer each step:
 Run it with Ollama and **no log ever leaves your machine**.
 
 ## Quick start
+
+### Try it online
+
+**[casewright-demo.onrender.com](https://casewright-demo.onrender.com)**: sign in as `demo` / `casewright-demo`.
+
+Open **Incidents** to see a replayed attack, then approve *Block IP* under
+**Response**. The demo runs rules-only, keeps everything in memory and resets
+every 6 hours. It is on a free plan, so the first visit after a quiet spell
+can take about a minute to wake up.
+
+### Run it locally
 
 You need Docker. No API key, no configuration:
 
