@@ -60,7 +60,7 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         if: steps.dataset.outputs.present == 'true'
         with:
           go-version-file: casewright/go.mod
