@@ -22,7 +22,7 @@ jobs:
         working-directory: casewright
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: casewright/go.mod
           cache-dependency-path: casewright/go.sum
@@ -62,7 +62,7 @@ jobs:
         ports: ["6334:6334"]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: casewright/go.mod
           cache-dependency-path: casewright/go.sum
